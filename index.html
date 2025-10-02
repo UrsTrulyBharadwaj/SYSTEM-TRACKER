@@ -1,341 +1,135 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>HUNTER SYSTEM V2.0 - RPG Habit Tracker</title>
-<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet" />
-<script src="https://cdn.tailwindcss.com"></script>
-<style>
-  html, body {
-    height: 100%;
-    margin: 0; padding: 0;
-    background-color: #0d1117;
-    font-family: 'Roboto Mono', monospace;
-    color: #a0b8d9;
-    line-height: 1.6;
-  }
-  .header {
-    background-color: #0c141f;
-    border-bottom: 1px solid #005566aa;
-    padding: 1rem 1.5rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .header h1 {
-    font-weight: 900;
-    font-size: 1.3rem;
-    letter-spacing: 0.22em;
-    color: #00f0ff;
-    text-shadow: 0 0 8px #00f0ffcc;
-    margin: 0;
-  }
-  .setting-btn {
-    background: none;
-    border: none;
-    color: #00f0ffcc;
-    font-size: 1.25rem;
-    cursor: pointer;
-  }
-  .setting-btn:hover {
-    color: #00f0ff;
-  }
-  .tabs {
-    background-color: #0f172a;
-    border-radius: 12px 12px 0 0;
-    box-shadow: 0 2px 16px #0f172a70;
-    display: flex;
-    justify-content: center;
-  }
-  .tab-btn {
-    cursor: pointer;
-    border: none;
-    background: none;
-    color: #015c6a;
-    padding: 1rem 2rem;
-    font-weight: 700;
-    letter-spacing: 0.15em;
-    font-size: 0.90rem;
-    transition: color 0.3s ease;
-    border-bottom: 3px solid transparent;
-    text-shadow: none;
-  }
-  .tab-btn.active {
-    color: #00f0ff;
-    border-bottom: 3px solid #00f0ff;
-    background-color: #001920;
-    text-shadow: 0 0 7px #00f0ffcc;
-  }
-  main {
-    max-width: 720px;
-    margin: 1.6rem auto 2rem auto;
-    padding: 0 1rem;
-  }
-  .status-alert {
-    background-color: #001e31;
-    color: #00bbcc;
-    text-transform: uppercase;
-    font-weight: 700;
-    font-size: 0.9rem;
-    padding: 1rem 1.5rem;
-    border-radius: 14px;
-    margin-bottom: 1rem;
-    letter-spacing: 0.12em;
-    text-align: center;
-  }
-  .status-greeting {
-    font-size: 1.5rem;
-    color: #00f0ff;
-    font-weight: 900;
-    margin-top: 0.1rem;
-    margin-bottom: 2rem;
-    text-align: center;
-  }
-  .level-panel {
-    background-color: #011427;
-    border-radius: 18px;
-    padding: 1.8rem 2rem;
-    box-shadow: 0 4px 14px #00f0ff55 inset;
-    color: #00f0ff;
-    margin-bottom: 2rem;
-  }
-  .level-title {
-    font-size: 1.8rem;
-    font-weight: 900;
-    text-align: center;
-  }
-  .level-subtitle {
-    font-size: 1rem;
-    color: #00bbcc;
-    margin-left: 0.5rem;
-    font-weight: normal;
-  }
-  .exp-bar-wrapper {
-    background-color: #00293a;
-    border-radius: 10px;
-    margin-top: 1.4rem;
-    height: 20px;
-    overflow: hidden;
-  }
-  .exp-bar {
-    background: linear-gradient(90deg, #00f0ff, #11c7d5, #00f0ff);
-    height: 100%;
-    width: 0;
-    transition: width 0.5s ease;
-  }
-  .exp-text {
-    font-size: 0.9rem;
-    color: #0099abcc;
-    margin-top: 7px;
-    text-align: center;
-  }
-  .stats-container {
-    display: flex;
-    gap: 1rem;
-    justify-content: space-around;
-    color: #00f0ff;
-  }
-  .stat-block {
-    background-color: #011f3d;
-    padding: 1.2rem 1.5rem;
-    border-radius: 10px;
-    box-shadow: inset 0 0 15px #00f0ffaa;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    min-width: 100px;
-  }
-  .stat-icon {
-    font-size: 1.7rem;
-    margin-bottom: 0.2rem;
-  }
-  .stat-title {
-    font-size: 0.85rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-  }
-  .stat-value {
-    font-size: 1.3rem;
-    font-weight: 900;
-    color: #00bbcc;
-  }
-  .daily-item {
-    background-color: #002137;
-    border-radius: 16px;
-    padding: 1.6rem 2rem;
-    margin-bottom: 1rem;
-    box-shadow: inset 0 0 18px #00a5bfcc;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-  }
-  .daily-item-info {
-    color: #00dfee;
-    flex: 1 1 250px;
-  }
-  .daily-item-title {
-    font-weight: 900;
-    font-size: 1.3rem;
-    margin-bottom: 0.5rem;
-    color: #00b8ff;
-  }
-  .daily-item-reward {
-    font-weight: 600;
-    font-size: 1rem;
-    color: #00d6ffcc;
-    margin-bottom: 0.3rem;
-  }
-  .claim-button {
-    background: linear-gradient(to right, #00d6ff, #00a5bf);
-    font-weight: 900;
-    border: none;
-    border-radius: 10px;
-    color: #0a204c;
-    font-size: 1.2rem;
-    padding: 0.8rem 2.2rem;
-    cursor: pointer;
-    box-shadow: 0 3px 25px #00bbff97;
-    transition: background 0.3s ease;
-    min-width: 150px;
-    margin-top: 0.8rem;
-  }
-  .claim-button:hover {
-    background: #00b9f6;
-  }
-  .claim-button:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .reward-item {
-    background-color: #002338;
-    border-radius: 16px;
-    padding: 1rem 1.5rem;
-    box-shadow: inset 0 0 22px #0099b8cc;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
-  }
-  .reward-title {
-    font-weight: 700;
-    font-size: 1.1rem;
-    color: #00cdfc;
-  }
-  .reward-quest {
-    font-size: 0.92rem;
-    color: #008cadcc;
-    font-weight: 600;
-  }
-  .reward-streak {
-    background-color: #001c25;
-    padding: 0.3rem 1rem;
-    color: #00c7f8;
-    border-radius: 14px;
-    font-size: 1.1rem;
-    font-weight: 700;
-  }
-  .modal-bg {
-    position: fixed;
-    inset: 0;
-    background: rgba(10, 16, 34, 0.90);
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .modal-panel {
-    background: #0f1822;
-    border-radius: 1.3rem;
-    padding: 2rem 3rem;
-    max-width: 440px;
-    width: 90vw;
-    box-shadow: 0 1rem 2rem #00b7ff50;
-  }
-  .modal-title {
-    font-size: 1.8rem;
-    color: #00d7ff;
-    font-weight: 900;
-    padding-bottom: 1.5rem;
-    letter-spacing: 0.22em;
-    text-align: center;
-  }
-  .modal-input {
-    margin-bottom: 1.4rem;
-    width: 100%;
-    font-size: 1.1rem;
-    font-weight: 900;
-    padding: 0.8rem 1.6rem;
-    border-radius: 0.6rem;
-    border: 2.5px solid #00a5c6;
-    background: #071623;
-    color: #08aadd;
-    outline: none;
-    transition: border-color 0.3s ease;
-  }
-  .modal-input:focus {
-    border-color: #00a8f7;
-  }
-  .modal-button {
-    background: linear-gradient(to right, #00aaf8, #007fa5);
-    border: none;
-    color: #030511;
-    font-weight: 900;
-    font-size: 1.1rem;
-    padding: 1rem 1.6rem;
-    border-radius: 0.75rem;
-    width: 100%;
-    cursor: pointer;
-    box-shadow: 0 0.3rem 2rem #503fd038;
-    transition: background-color 0.2s ease;
-  }
-  .modal-button:hover {
-    background-color: #0099e8;
-  }
-  @media (max-width: 768px) {
-    .header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 1rem;
+  <meta charset="UTF-8">
+  <title>HUNTER SYSTEM V2.0 - RPG Habit Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html, body {
+      height: 100%;
+      background: #111929;
+      font-family: 'Roboto Mono', monospace;
+      color: #a0b8d9;
+      line-height: 1.6;
     }
-    .header h1 {
-      font-size: 1.5rem;
-      letter-spacing: 0.15em;
+    .navy-panel {
+      background: #121d2a;
+      border-radius: 16px;
+      box-shadow: 0 6px 36px #151e2d;
+      border: 1.5px solid #203047;
+      backdrop-filter: blur(7px);
     }
-    main {
-      margin: 1rem;
-      padding: 1.5rem 1rem;
+    .tab-bar {
+      background: #0f172a;
+      border-radius: 12px 12px 0 0;
+      box-shadow: 0 2px 16px #0f172a70;
     }
-    .stats-container {
-      flex-direction: column;
-      gap: 1rem;
-      padding: 0 0.4rem;
-    }
-    .stat-block {
-      min-width: 100%;
-    }
-    .daily-item {
-      flex-direction: column;
-      align-items: flex-start;
-      padding: 1rem;
-    }
-    .claim-button {
-      width: 100%;
-      padding: 0.6rem 0;
+    .tab-btn, .tab-btn:visited {
+      border: none;
+      background: transparent;
+      color: #40e5fa;
+      font-weight: 700;
       font-size: 1rem;
-      margin-top: 1rem;
+      letter-spacing: 0.09em;
+      padding: 0.9em 2.3em;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.14s;
+      text-shadow: 0 0 4px #0ffaff85;
     }
-    .reward-item {
-      flex-direction: column;
-      align-items: flex-start;
-      padding: 1rem;
+    .tab-btn.tab-on,
+    .tab-btn:focus {
+      border-bottom: 3px solid #19e5f7;
+      background: #151e2d;
+      color: #19e5f7;
     }
-  }
-</style>
+    .tab:not(.tab-on):hover { color: #19e5f7;}
+    .main-heading {
+      color: #13ecff;
+      font-family: inherit;
+      letter-spacing: 0.17em;
+      font-weight: 700;
+      text-shadow: 0 0 7px #0ffaff90;
+    }
+    .section-label {
+      color: #1af1fe;
+      font-size: 1.04rem;
+      font-weight: 700;
+      margin: 0.2em 0 0.75em;
+      letter-spacing: 0.13em;
+      text-shadow: 0 0 2px #40e5fa;
+    }
+    .exp-bar-bg {
+      background: #182337;
+      border-radius: 8px;
+      height: 18px;
+    }
+    .exp-bar {
+      background: linear-gradient(90deg,#19e5f7,#02cfe6,#21fff9);
+      border-radius: 8px;
+      height: 100%;
+      transition: width .3s cubic-bezier(.54,.21,.36,1.09);
+    }
+    .btn-claim, .btn-create {
+      background: linear-gradient(90deg, #1af1fe 60%, #19e5f7 100%);
+      color: #132235;
+      font-weight: 700;
+      border: none;
+      font-size: 1rem;
+      border-radius: 8px;
+      padding: 0.72em 2em;
+      margin-top: 0.6em;
+      margin-right: 1em;
+      box-shadow: 0 2px 22px #0ffaff70;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: background .16s, color .16s;
+    }
+    .btn-claim:disabled { background:#395b6d90;color:#88d0eb99;cursor:default;}
+    .btn-create {margin-top:0;}
+    .streak-label {
+      background: #102334;
+      border-radius: 7.5px;
+      color: #38fefb;
+      font-size: 0.98rem;
+      font-weight: 600;
+      margin-left: 12px;
+      padding: 0.2em 1.4em;
+      letter-spacing: 0.05em;
+      box-shadow: 0 1px 8px #0ffaff60;
+    }
+    .glass-modal-bg {
+      position:fixed; inset:0;
+      background:rgba(10,18,36,0.91);
+      z-index:50;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .glass-panel-lg {
+      background: #142032ee;
+      border: 2.2px solid #03e3fe80;
+      box-shadow: 0 8px 38px #1bdcf877, 0 1px 0 #21fff933;
+      border-radius: 18px;
+      padding:2.75em 2em 2em;
+      min-width: 340px;
+      max-width: 99vw;
+    }
+    ::selection { background: #1e90ff44; }
+    svg.icon {
+      fill: none;
+      stroke: #19e5f7;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      height: 1.3rem;
+      width: 1.3rem;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+  </style>
 </head>
 <body>
 <div id="root"></div>
@@ -343,293 +137,209 @@
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script type="text/babel">
-  // Helpers and storage
-  const todayISO = () => new Date().toISOString().slice(0, 10);
-  const uid = () => Math.random().toString(36).slice(2, 10);
-  const STORAGE_KEY = "hunterSystemData";
-  function loadState() {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : { profile: { name: "Hunter", xp: 0, level: 1 }, habits: [], rewards: [] };
-  }
-  function saveState(state) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }
 
-  // Level titles
-  function getRankTitle(level) {
-    if (level >= 11) return "Elite Specialist";
-    if (level >= 6) return "Rookie Analyst";
-    if (level >= 1) return "Novice Hunter";
-    return "Unregistered";
-  }
-  const gainXP = (streak) => streak >= 3 ? 15 : 10;
+const todayISO = ()=>new Date().toISOString().slice(0,10);
+const uid = ()=>Math.random().toString(36).slice(2,10);
+const STORAGE_KEY = "hunter_system_v2";
 
-  // Components
+function loadLocal() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) return JSON.parse(raw);
+  return {
+    profile: {name:"Hunter",xp:0,level:1},
+    habits:[],
+    rewards:[]
+  };
+}
+function saveLocal(state) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+const gainXP = streak => streak>=3?15:10;
+const recomputeLevel = xp=>1+Math.floor(xp/100);
 
-  function SettingsModal({ profile, onSave, onClose }) {
-    const [name, setName] = React.useState(profile.name || "");
-    return (
-      <div className="modal-bg">
-        <div className="modal-panel">
-          <h2 className="modal-title">SYSTEM SETTINGS</h2>
-          <input
-            type="text"
-            className="modal-input"
-            placeholder="Hunter Display Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoFocus
-          />
-          <button className="modal-button" onClick={() => onSave(name)}>
-            SAVE & CONTINUE
-          </button>
-          <button className="mt-4 text-gray-400 hover:text-white w-full bg-transparent border-0 cursor-pointer" onClick={onClose}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
-  }
+function getRankTitle(level) {
+  if(level >= 11) return "Elite Specialist";
+  if(level >= 6) return "Rookie Analyst";
+  if(level >= 1) return "Novice Hunter";
+  return "Unregistered";
+}
 
-  function CreateQuestModal({ onSave, onClose }) {
-    const [questName, setQuestName] = React.useState("");
-    const [questReward, setQuestReward] = React.useState("");
-    return (
-      <div className="modal-bg">
-        <div className="modal-panel">
-          <h2 className="modal-title">CREATE NEW QUEST</h2>
-          <input
-            type="text"
-            className="modal-input"
-            placeholder="Quest Name (e.g., Meditate 10 mins)"
-            value={questName}
-            onChange={(e) => setQuestName(e.target.value)}
-            autoFocus
-          />
-          <input
-            type="text"
-            className="modal-input"
-            placeholder="7-Day Reward (e.g., Biryani Pass Unlocked)"
-            value={questReward}
-            onChange={(e) => setQuestReward(e.target.value)}
-          />
-          <button
-            className="modal-button"
-            onClick={() => {
-              if (questName) {
-                onSave({ name: questName, rewardDescription: questReward });
-              }
-            }}
-          >
-            ACTIVATE QUEST
-          </button>
-          <button className="mt-4 text-gray-400 hover:text-white w-full bg-transparent border-0 cursor-pointer" onClick={onClose}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  function StatCard({ icon, title, value }) {
-    return (
-      <div className="stat-block">
-        <span className="stat-icon">{icon}</span>
-        <span className="stat-title">{title}</span>
-        <span className="stat-value">{value}</span>
-      </div>
-    );
-  }
-
-  function App() {
-    const [state, setState] = React.useState(loadState());
-    const [modal, setModal] = React.useState(!state.profile.name ? "settings" : null);
-    const [activeTab, setActiveTab] = React.useState(0); // 0: Status, 1: Daily Quests, 2: Rewards
-
-    React.useEffect(() => {
-      saveState(state);
-    }, [state]);
-
-    const saveName = (name) => {
-      const next = { ...state, profile: { ...state.profile, name } };
-      setState(next);
-      setModal(null);
-    };
-
-    const addHabit = ({ name, rewardDescription }) => {
-      if (!name) return;
-
-      const quest = {
-        id: uid(),
-        name,
-        logs: [],
-        streak: 0,
-        rewardDescription: rewardDescription,
-      };
-
-      setState({ ...state, habits: [...state.habits, quest] });
-      setModal(null);
-    };
-
-    const toggleHabit = (id) => {
-      const today = todayISO();
-      const next = JSON.parse(JSON.stringify(state));
-      const quest = next.habits.find((h) => h.id === id);
-      if (!quest) return;
-      const completed = quest.logs.includes(today);
-
-      if (!completed) {
-        quest.logs.push(today);
-        let streak = 0;
-        const days = new Set(quest.logs);
-        for (let i = 0; ; i++) {
-          const day = new Date();
-          day.setDate(day.getDate() - i);
-          const isoDay = day.toISOString().slice(0, 10);
-          if (days.has(isoDay)) streak++;
-          else break;
-        }
-        quest.streak = streak;
-        next.profile.xp += gainXP(streak);
-        next.profile.level = Math.floor(next.profile.xp / 100) + 1;
-      }
-      setState(next);
-    };
-
-    // Icons
-    const lightningIcon = (
-      <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="#19e5f7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-      </svg>
-    );
-    const giftIcon = (
-      <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="#19e5f7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <polyline points="8 12 12 16 16 12" />
-      </svg>
-    );
-    const targetIcon = (
-      <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="#19e5f7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <polyline points="9 12 12 15 16 10" />
-      </svg>
-    );
-
-    return (
-      <div style={{ minHeight: "100vh", backgroundColor: "#0d1117" }}>
-        <header className="header">
-          <h1>HUNTER SYSTEM V2.0</h1>
-          <div>
-            <span className="NEONBLUE" style={{ letterSpacing: "0.09em", fontWeight: 700 }}>
-              USER: {state.profile.name}
-            </span>
-            <button className="setting-btn" onClick={() => setModal("settings")} aria-label="Edit settings">
-              &#9881;
-            </button>
-          </div>
-        </header>
-        <nav className="tabs">
-          <button className={`tab-btn ${activeTab === 0 ? "tab-on" : ""}`} onClick={() => setActiveTab(0)}>
-            STATUS WINDOW
-          </button>
-          <button className={`tab-btn ${activeTab === 1 ? "tab-on" : ""}`} onClick={() => setActiveTab(1)}>
-            DAILY QUESTS
-          </button>
-          <button className={`tab-btn ${activeTab === 2 ? "tab-on" : ""}`} onClick={() => setActiveTab(2)}>
-            REWARDS INVENTORY
-          </button>
-        </nav>
-        <main className="navy-panel">
-          {activeTab === 0 && (
-            <section>
-              <div className="status-alert">SYSTEM ALERT</div>
-              <div className="status-greeting">
-                {(() => {
-                  const hour = new Date().getHours();
-                  if (hour < 12) return `Good Morning, Hunter ${state.profile.name}!`;
-                  else if (hour < 18) return `Good Afternoon, Hunter ${state.profile.name}!`;
-                  else return `Good Evening, Hunter ${state.profile.name}!`;
-                })()}
-              </div>
-              <div className="level-panel">
-                <div className="level-title">
-                  LEVEL {state.profile.level} <span className="level-subtitle">({getRankTitle(state.profile.level)})</span>
-                </div>
-                <div className="exp-bar-wrapper">
-                  <div className="exp-bar" style={{ width: `${state.profile.xp % 100}%` }}></div>
-                </div>
-                <div className="exp-text">
-                  EXP: {state.profile.xp} Total | {100 - (state.profile.xp % 100)} EXP TO LEVEL {state.profile.level + 1}
-                </div>
-                <div className="stats-container">
-                  <StatCard icon={lightningIcon} title="MANA / FOCUS" value="100%" />
-                  <StatCard icon={giftIcon} title="REWARDS PENDING" value={state.habits.filter((h) => h.streak >= 7).length} />
-                  <StatCard
-                    icon={targetIcon}
-                    title="TODAY'S COMPLETION"
-                    value={
-                      state.habits.length === 0
-                        ? "0%"
-                        : `${Math.round((state.habits.filter((h) => h.logs.includes(todayISO())).length / state.habits.length) * 100)}%`
-                    }
-                  />
-                </div>
-              </div>
-            </section>
-          )}
-          {activeTab === 1 && (
-            <section>
-              <div style={{ display: "flex", justifyContent: "flex-end", paddingRight: "1rem", marginBottom: "1rem" }}>
-                <button className="btn-create" onClick={() => setModal("create")}>
-                  CREATE NEW QUEST
-                </button>
-              </div>
-              {state.habits.length === 0 && <div style={{ textAlign: "center", color: "#38fefb99", padding: "5rem", fontSize: "1.3rem" }}>No Quests Active. Click 'Create New Quest' to begin!</div>}
-              {state.habits.map((quest) => (
-                <div key={quest.id} className="daily-item">
-                  <div className="daily-item-info">
-                    <div className="daily-item-title">{quest.name}</div>
-                    {quest.rewardDescription && <div className="daily-item-reward">Reward: {quest.rewardDescription}</div>}
-                    <div className="streak-label">Streak: {quest.streak || 0}</div>
-                  </div>
-                  <button className="claim-button" disabled={quest.logs.includes(todayISO())} onClick={() => toggleHabit(quest.id)}>
-                    {quest.logs.includes(todayISO()) ? "CLAIMED" : "CLAIM XP"}
-                  </button>
-                </div>
-              ))}
-            </section>
-          )}
-          {activeTab === 2 && (
-            <section style={{ padding: "0 2rem" }}>
-              <div className="section-label" style={{ textAlign: "center", marginBottom: "2rem" }}>
-                EARNED REWARDS
-              </div>
-              {state.habits.filter((h) => h.streak >= 7 && h.rewardDescription).length === 0 && (
-                <div style={{ color: "#a0b8d997", textAlign: "center", padding: "3rem" }}>Complete 7-day streaks with a reward to see inventory!</div>
-              )}
-              <ul style={{ paddingLeft: 0 }}>
-                {state.habits
-                  .filter((h) => h.streak >= 7 && h.rewardDescription)
-                  .map((h) => (
-                    <li key={h.id} className="reward-item">
-                      <div>
-                        <div className="reward-title">{h.rewardDescription}</div>
-                        <div className="reward-quest">Quest: {h.name}</div>
-                      </div>
-                      <div className="reward-streak">Streak: {h.streak || 0}</div>
-                    </li>
-                  ))}
-              </ul>
-            </section>
-          )}
-        </main>
-        {modal === "settings" && <SettingsModal profile={state.profile} onSave={saveName} onClose={() => setModal(null)} />}
-        {modal === "create" && <CreateQuestModal onSave={addHabit} onClose={() => setModal(null)} />}
+//---------------- Modal dialogs ----------------
+function SettingsModal({profile,onSave,onClose}) {
+  const [name,setName]=React.useState(profile?.name||"");
+  return (
+    <div className="glass-modal-bg">
+      <div className="glass-panel-lg">
+        <h3 className="main-heading text-2xl mb-7 mt-1 text-center">SYSTEM SETTINGS</h3>
+        <p className="mb-4 mt-2 text-[#40e5fa] text-center">Set your <b>Hunter Display Name</b></p>
+        <input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g., Bharadwaj" autoFocus
+          className="w-full p-3 mb-6 rounded-lg border border-[#21fff9] text-xl bg-[#181f2b] text-[#00efff] focus:outline-none focus:border-[#03e3fe] font-bold transition"/>
+        <button className="btn-create w-full text-center" onClick={()=>onSave(name)}>SAVE & CONTINUE</button>
+        <button className="mt-7 w-full text-xs text-slate-400" style={{background:"none",border:"0"}} onClick={onClose}>✕ Cancel</button>
       </div>
     </div>
   );
 }
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+function CreateHabitModal({onSave,onClose}) {
+  const [name,setName]=React.useState(""), [reward,setReward]=React.useState("");
+  return (
+    <div className="glass-modal-bg">
+      <div className="glass-panel-lg">
+        <h3 className="main-heading text-lg mb-5 text-center">CREATE NEW QUEST</h3>
+        <input type="text" value={name} onChange={e=>setName(e.target.value)}
+          placeholder="e.g., Healthy Diet" className="w-full p-2 mb-4 rounded-lg border border-[#21fff9] text-base bg-[#181f2b] text-[#00efff] font-bold focus:outline-none"/>
+        <input type="text" value={reward} onChange={e=>setReward(e.target.value)} placeholder="7-Day Reward (e.g., Biryani Pass Unlocked!)"
+          className="w-full p-2 mb-4 rounded-lg border border-[#21fff9] text-base bg-[#181f2b] text-[#97f1fe] focus:outline-none"/>
+        <div className="mt-7 flex gap-3">
+          <button className="btn-create flex-1" type="button" onClick={()=>{if(name) onSave({name,rewardDescription:reward});}}>ACTIVATE QUEST</button>
+          <button className="flex-1 border-0 text-slate-400 hover:text-[#1af1fe]" style={{background:"none"}} onClick={onClose}>CANCEL</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+//---------------- Main ----------------
+function App() {
+  const [state,setState]=React.useState(loadLocal());
+  const [modal,setModal]=React.useState(!state.profile.name?"settings":null);
+  const [tab,setTab]=React.useState(0);
+  React.useEffect(()=>saveLocal(state),[state]);
+  // name set
+  const saveName = (name)=>{
+    const next={...state,profile:{...state.profile,name}};
+    setState(next); setModal(null);
+  };
+  // add quest
+  const addHabit = ({name,rewardDescription})=>{
+    if(!name)return;
+    const h={id:uid(),name:name.trim(),logs:[],streak:0,rewardDescription:rewardDescription.trim()};
+    setState({...state,habits:[...state.habits,h]}); setModal(null);
+  };
+  // claim quest today
+  const toggleHabit = hid=>{
+    const t=todayISO();
+    const next=JSON.parse(JSON.stringify(state));
+    const h=next.habits.find(x=>x.id===hid);if(!h)return;
+    const already=h.logs.includes(t);
+    if(!already){
+      h.logs.push(t);
+      let streak=0,days=new Set(h.logs);
+      for(let i=0;;i++){const d=new Date(); d.setDate(d.getDate()-i);const iso=d.toISOString().slice(0,10);if(days.has(iso))streak++;else break;}
+      h.streak=streak; next.profile.xp+=(gainXP(streak)); next.profile.level=recomputeLevel(next.profile.xp);}
+    setState(next);
+  };
+
+  // Tab icons SVG
+  const ManaIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+  );
+  const RewardsIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="8 12 12 16 16 12"/></svg>
+  );
+  const CompletionIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="9 12 12 15 16 10"/></svg>
+  );
+
+  // UI render
+  const tabs = ["STATUS WINDOW","DAILY QUESTS","REWARDS INVENTORY"];
+  return (
+    <div style={{minHeight:"100vh",background:"#111929"}}>
+      <div className="mx-auto max-w-3xl p-0">
+        <header className="flex flex-col md:flex-row md:items-center md:justify-between p-6">
+          <span className="main-heading text-3xl tracking-wider md:mb-0 mb-3">HUNTER SYSTEM V2.0</span>
+          <div className="rounded px-4 py-2 bg-[#171f2c] flex items-center justify-end min-w-[160px]">
+            <span style={{color:'#40e5fa',letterSpacing:".08em"}} className="text-base font-bold tracking-wide">USER: {state.profile.name||"Hunter"}</span>
+            <button onClick={()=>setModal("settings")} title="Edit Display Name"
+              className="ml-3 px-0 py-1 border-0 bg-transparent text-[#12e9ff] hover:text-[#07e3fe] text-2xl" aria-label="settings">&#9881;</button>
+          </div>
+        </header>
+        <nav className="tab-bar mt-1 mb-1 flex flex-row justify-center px-2">
+          {tabs.map((t,i)=>
+            <button key={t} className={"tab-btn"+(tab===i?" tab-on":"")} onClick={()=>setTab(i)}>{t}</button>
+          )}
+        </nav>
+        <main className="navy-panel px-0 py-8 mt-2">
+          {/* --- Status Window --- */}
+          {tab===0 && (<>
+            <div className="text-center mb-4">
+              <div className="section-label">SYSTEM ALERT</div>
+              <div className="text-2xl font-extrabold text-[#0fecff] pb-2" style={{letterSpacing:".09em",fontWeight:800}}>
+                {(() => {
+                  const h = new Date().getHours();
+                  const t = h < 12 ? "Good Morning" : h < 18 ? "Good Afternoon" : "Good Evening";
+                  return `${t}, Hunter ${state.profile.name||"Hunter"}!`;
+                })()}
+              </div>
+            </div>
+            <div className="max-w-xl mx-auto bg-[#182239] border-[1.2px] border-[#1af1fe88] rounded-xl px-8 py-6 shadow-lg flex flex-col gap-4">
+              <div>
+                <span className="main-heading text-lg inline-block mb-1">LEVEL {state.profile.level} <span className="font-normal text-base text-[#4beefe] ml-2">({getRankTitle(state.profile.level)})</span></span>
+                <div className="exp-bar-bg mt-3 mb-2">
+                  <div className="exp-bar" style={{width:`${(state.profile.xp%100)}%`}}></div>
+                </div>
+                <span className="block text-xs text-[#97f1fe] pb-2">EXP: {state.profile.xp} Total | {100-(state.profile.xp%100)} EXP TO LEVEL {state.profile.level+1}</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                <div className="bg-[#101e2a] rounded-lg p-3 flex items-center justify-center gap-2 section-label" style={{fontSize:"1rem"}}>
+                  <ManaIcon/>⚡ MANA / FOCUS: <b style={{color:"#19e5f7"}}>100%</b>
+                </div>
+                <div className="bg-[#101e2a] rounded-lg p-3 flex items-center justify-center gap-2 section-label" style={{fontSize:"1rem"}}>
+                  <RewardsIcon/>🎁 REWARDS PENDING: <b style={{color:"#1af1fe"}}>{(state.habits.filter(q=>q.streak>=7)).length}</b>
+                </div>
+                <div className="bg-[#101e2a] rounded-lg p-3 flex items-center justify-center gap-2 section-label" style={{fontSize:"1rem"}}>
+                  <CompletionIcon/>🎯 TODAY'S COMPLETION: <b style={{color:"#11e7fe"}}>
+                    {state.habits.length === 0 ? "0" : Math.round(state.habits.filter(q=>q.logs.includes(todayISO())).length/state.habits.length*100)}%
+                  </b>
+                </div>
+              </div>
+            </div>
+          </>)}
+          {/* --- Daily Quests --- */}
+          {tab===1 && (<>
+            <div className="flex justify-end pr-8 pb-4">
+              <button className="btn-create tracking-wider" title="Create new quest" onClick={()=>setModal("create")}>CREATE NEW QUEST</button>
+            </div>
+            {state.habits.length===0 && <div className="py-16 text-center text-[#38fefb99]">No Quests Active. Click 'Create New Quest' to begin!</div>}
+            <div className="space-y-6">
+              {state.habits.map((h,idx)=>(
+                <div key={h.id} className="glass-panel-lg mb-1 bg-[#15213adde] border-[1.4px] border-[#03e3fe80] shadow-md flex items-center gap-6">
+                  <div className="flex-grow">
+                    <div className="main-heading text-lg pb-1">{h.name}</div>
+                    {h.rewardDescription && <div className="block text-sm text-[#60eeff] mb-2" style={{fontWeight:600}}>Reward: {h.rewardDescription}</div>}
+                    <span className="streak-label">Streak: {h.streak||0}</span>
+                  </div>
+                  <button className="btn-claim" disabled={h.logs.includes(todayISO())} onClick={()=>toggleHabit(h.id)}>
+                    {h.logs.includes(todayISO()) ? "CLAIMED" : "CLAIM XP"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>)}
+          {/* --- Rewards Inventory --- */}
+          {tab===2 && (<>
+            <div className="section-label text-center mb-7">EARNED REWARDS</div>
+            <ul className="space-y-4 px-6 md:px-12">
+              {state.habits.filter(h=>h.streak>=7 && h.rewardDescription).length===0 &&
+                <li className="py-8 text-[#a0b8d997] text-center">Complete 7-day streaks with a reward to see inventory!</li>}
+              {state.habits.filter(h=>h.streak>=7 && h.rewardDescription).map(h=>
+                <li className="glass-panel-lg bg-[#162139ee] flex justify-between items-center">
+                  <div>
+                    <div className="section-label">{h.rewardDescription}</div>
+                    <div className="text-xs text-[#97f1fe]">Quest: {h.name}</div>
+                  </div>
+                  <span className="streak-label">Streak: {h.streak||0}</span>
+                </li>
+              )}
+            </ul>
+          </>)}
+        </main>
+        {modal==="settings"&&<SettingsModal profile={state.profile} onSave={saveName} onClose={()=>setModal(null)}/>}
+        {modal==="create"&&<CreateHabitModal onSave={addHabit} onClose={()=>setModal(null)}/>}
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
 </html>
