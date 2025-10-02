@@ -13,6 +13,19 @@
             font-family: 'Roboto Mono', monospace;
             background-color: #0d1117; /* GitHub Dark Blue */
         }
+        /* Custom spinner for loading state */
+        .loading-spinner {
+            border: 4px solid rgba(0, 240, 255, 0.2);
+            border-top: 4px solid #00F0FF;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
     <!-- Load React and ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -180,6 +193,7 @@
 
 
             // --- FIREBASE AUTH & INIT ---
+            // This hook handles sign-in and sets up the onAuthStateChanged listener
             React.useEffect(() => {
                 if (!firebaseConfig) return console.error("Firebase config not available.");
                 
@@ -192,93 +206,101 @@
                         }
                     } catch (error) {
                         console.error("Firebase Auth error:", error);
-                        await window.signInAnonymously(auth);
+                        // Fallback to anonymous sign-in if custom token fails
+                        await window.signInAnonymously(auth); 
                     }
                 };
+                
+                // This function is defined outside and called in onAuthStateChanged
+                // It handles all Firestore subscriptions and returns an array of unsubscribe functions
+                const setupSubscriptions = (uid) => {
+                    if (!uid) return [];
 
-                const unsubscribe = window.onAuthStateChanged(auth, (user) => {
+                    const profileRef = getProfileRef(uid);
+                    const habitsRef = getHabitsCollection(uid);
+                    const rewardsRef = getRewardsCollection(uid);
+                    const unsubscribes = [];
+
+                    // 1. Subscribe to Profile/XP Data
+                    const unsubscribeProfile = window.onSnapshot(profileRef, async (docSnap) => {
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            setXp(data.xp || 0);
+                            setLevel(data.level || 1);
+                            setDisplayName(data.displayName || 'Hunter');
+                            
+                            if (!data.displayName || data.displayName === 'Hunter') {
+                                setShowSettingsPrompt(true);
+                            }
+                        } else {
+                            // Initialize profile if it doesn't exist
+                            const initialDisplayName = auth.currentUser?.email?.split('@')[0] || 'Hunter';
+                            await window.setDoc(profileRef, { xp: 0, level: 1, displayName: initialDisplayName });
+                            setDisplayName(initialDisplayName);
+                            setShowSettingsPrompt(true);
+                        }
+                    }, (error) => {
+                         // This is where the permission error logs occur. They should be handled gracefully.
+                         console.error("Error subscribing to profile:", error);
+                    });
+                    unsubscribes.push(unsubscribeProfile);
+
+
+                    // 2. Subscribe to Habits (Daily Quests)
+                    const unsubscribeHabits = window.onSnapshot(habitsRef, (snapshot) => {
+                        const fetchedHabits = [];
+                        const newCache = {};
+                        snapshot.forEach(doc => {
+                            const habitData = doc.data();
+                            fetchedHabits.push({ id: doc.id, ...habitData });
+                            newCache[doc.id] = (habitData.lastClaimDate === todayISO);
+                        });
+                        setHabits(fetchedHabits);
+                        setCompletionCache(newCache); 
+                    }, (error) => {
+                         console.error("Error subscribing to habits:", error);
+                    });
+                    unsubscribes.push(unsubscribeHabits);
+
+                    // 3. Subscribe to Rewards (Inventory)
+                    const unsubscribeRewards = window.onSnapshot(rewardsRef, (snapshot) => {
+                        const fetchedRewards = [];
+                        snapshot.forEach(doc => fetchedRewards.push({ id: doc.id, ...doc.data() }));
+                        setRewards(fetchedRewards);
+                    }, (error) => {
+                         console.error("Error subscribing to rewards:", error);
+                    });
+                    unsubscribes.push(unsubscribeRewards);
+                    
+                    return unsubscribes;
+                };
+
+                let currentUnsubscribes = [];
+
+                const unsubscribeAuth = window.onAuthStateChanged(auth, (user) => {
+                    // 1. Clean up old subscriptions first
+                    currentUnsubscribes.forEach(unsub => unsub());
+
                     if (user) {
                         setUserId(user.uid);
+                        // 2. Setup new subscriptions ONLY when user is confirmed
+                        currentUnsubscribes = setupSubscriptions(user.uid);
                     } else {
-                        // If auth fails for some reason, use a random ID for anonymous data segregation
-                        setUserId(crypto.randomUUID()); 
+                        // User is null (e.g., failed sign-in), set a fallback ID for data segregation
+                        setUserId(crypto.randomUUID());
+                        // No subscriptions for a non-authenticated state; the client handles the loading state.
                     }
                     setIsAuthReady(true);
                 });
 
                 signIn();
-                return () => unsubscribe();
-            }, []);
-
-            // --- DATA SUBSCRIPTIONS ---
-            // CONDITIONALLY run effects only when userId is confirmed (isAuthReady is true AND userId is set)
-            React.useEffect(() => {
-                if (!isAuthReady || !userId || !db) {
-                     console.log("Waiting for Auth readiness or User ID...");
-                     return;
-                }
                 
-                console.log("Auth Ready. Starting Firestore Subscriptions for user:", userId);
-
-                const profileRef = getProfileRef(userId);
-
-                // 1. Subscribe to Profile/XP Data
-                const unsubscribeProfile = window.onSnapshot(profileRef, async (docSnap) => {
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        setXp(data.xp || 0);
-                        setLevel(data.level || 1);
-                        setDisplayName(data.displayName || 'Hunter');
-                        
-                        // Prompt user to set display name if default
-                        if (!data.displayName || data.displayName === 'Hunter') {
-                            setShowSettingsPrompt(true);
-                        }
-                    } else {
-                        // Initialize profile if it doesn't exist
-                        const initialDisplayName = auth.currentUser?.email?.split('@')[0] || 'Hunter';
-                        await window.setDoc(profileRef, { xp: 0, level: 1, displayName: initialDisplayName });
-                        setDisplayName(initialDisplayName);
-                        setShowSettingsPrompt(true);
-                    }
-                }, (error) => {
-                     console.error("Error subscribing to profile:", error);
-                });
-
-                // 2. Subscribe to Habits (Daily Quests) - Optimized to include completion status
-                const habitsRef = getHabitsCollection(userId);
-                const unsubscribeHabits = window.onSnapshot(habitsRef, (snapshot) => {
-                    const fetchedHabits = [];
-                    const newCache = {};
-                    snapshot.forEach(doc => {
-                        const habitData = doc.data();
-                        fetchedHabits.push({ id: doc.id, ...habitData });
-                        
-                        // Use pre-calculated field for speed
-                        newCache[doc.id] = (habitData.lastClaimDate === todayISO);
-                    });
-                    setHabits(fetchedHabits);
-                    setCompletionCache(newCache); // Update cache for fast access
-                }, (error) => {
-                     console.error("Error subscribing to habits:", error);
-                });
-
-                // 3. Subscribe to Rewards (Inventory)
-                const rewardsRef = getRewardsCollection(userId);
-                const unsubscribeRewards = window.onSnapshot(rewardsRef, (snapshot) => {
-                    const fetchedRewards = [];
-                    snapshot.forEach(doc => fetchedRewards.push({ id: doc.id, ...doc.data() }));
-                    setRewards(fetchedRewards);
-                }, (error) => {
-                     console.error("Error subscribing to rewards:", error);
-                });
-
+                // Cleanup function for the component
                 return () => {
-                    unsubscribeProfile();
-                    unsubscribeHabits();
-                    unsubscribeRewards();
+                    unsubscribeAuth();
+                    currentUnsubscribes.forEach(unsub => unsub());
                 };
-            }, [isAuthReady, userId]);
+            }, []); // Empty dependency array means this runs only on mount
 
             // --- PROFILE UPDATE HANDLER ---
             const updateProfileDisplayName = async (newDisplayName) => {
@@ -501,7 +523,7 @@
                 );
 
                 const StatCard = ({ title, value, icon: Icon, colorClass }) => {
-                    // Placeholder for Mana/Focus calculation based on habits claimed today
+                    // Mana/Focus and Completion calculation for Stats
                     const dailyManaStart = 100;
                     const completedTodayCount = habits.filter(h => completionCache[h.id]).length;
                     const currentMana = dailyManaStart - (completedTodayCount * 15);
@@ -667,12 +689,21 @@
                 </div>
             );
 
+            const LoadingOverlay = () => (
+                <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 text-white">
+                    <div className="loading-spinner mb-4"></div>
+                    <p className={`${NEON_BLUE} text-lg font-mono`}>SYSTEM INITIALIZING...</p>
+                    <p className="text-sm text-gray-500 mt-2">Authenticating Hunter Credentials...</p>
+                </div>
+            );
+
             const renderContent = () => {
-                // Keep the 'Initializing System...' screen minimal for fast loading
+                // If authentication is not ready, display a full-page loading overlay
                 if (!isAuthReady) {
-                    return <div className="text-center p-10 text-gray-400">Initializing System...</div>;
+                    return <LoadingOverlay />;
                 }
 
+                // Once authenticated, render the selected content (Status Window, Quests, or Rewards)
                 switch (activeTab) {
                     case 'STATUS WINDOW': return <StatusWindow />;
                     case 'DAILY QUESTS': return <DailyQuests />;
@@ -683,7 +714,7 @@
 
             return (
                 <div className={`min-h-screen ${BG_DARK} text-white font-sans antialiased`}>
-                    {/* Header / System Title */}
+                    {/* Header / System Title (Always loads instantly) */}
                     <header className={`p-4 shadow-lg ${BG_DARK} sticky top-0 z-10 border-b border-gray-700`}>
                         <div className="max-w-4xl mx-auto flex justify-between items-center">
                             <h1 className={`text-2xl font-extrabold tracking-widest ${NEON_BLUE}`}>HUNTER SYSTEM V2.0</h1>
