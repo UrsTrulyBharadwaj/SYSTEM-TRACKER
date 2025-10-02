@@ -45,6 +45,7 @@
       background: #151e2d;
       color: #19e5f7;
     }
+    .tab:not(.tab-on):hover { color: #19e5f7;}
     .main-heading {
       color: #13ecff;
       font-family: inherit;
@@ -117,6 +118,17 @@
       max-width: 99vw;
     }
     ::selection { background: #1e90ff44; }
+    svg.icon {
+      fill: none;
+      stroke: #19e5f7;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      height: 1.3rem;
+      width: 1.3rem;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
   </style>
 </head>
 <body>
@@ -125,9 +137,11 @@
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script type="text/babel">
+
 const todayISO = ()=>new Date().toISOString().slice(0,10);
 const uid = ()=>Math.random().toString(36).slice(2,10);
 const STORAGE_KEY = "hunter_system_v2";
+
 function loadLocal() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) return JSON.parse(raw);
@@ -142,6 +156,14 @@ function saveLocal(state) {
 }
 const gainXP = streak => streak>=3?15:10;
 const recomputeLevel = xp=>1+Math.floor(xp/100);
+
+function getRankTitle(level) {
+  if(level >= 11) return "Elite Specialist";
+  if(level >= 6) return "Rookie Analyst";
+  if(level >= 1) return "Novice Hunter";
+  return "Unregistered";
+}
+
 //---------------- Modal dialogs ----------------
 function SettingsModal({profile,onSave,onClose}) {
   const [name,setName]=React.useState(profile?.name||"");
@@ -202,21 +224,33 @@ function App() {
     if(!already){
       h.logs.push(t);
       let streak=0,days=new Set(h.logs);
-      for(let i=0;;i++){const d=new Date();d.setDate(d.getDate()-i);const iso=d.toISOString().slice(0,10);if(days.has(iso))streak++;else break;}
+      for(let i=0;;i++){const d=new Date(); d.setDate(d.getDate()-i);const iso=d.toISOString().slice(0,10);if(days.has(iso))streak++;else break;}
       h.streak=streak; next.profile.xp+=(gainXP(streak)); next.profile.level=recomputeLevel(next.profile.xp);}
     setState(next);
   };
-  // tab labels
+
+  // Tab icons SVG
+  const ManaIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+  );
+  const RewardsIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="8 12 12 16 16 12"/></svg>
+  );
+  const CompletionIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="9 12 12 15 16 10"/></svg>
+  );
+
+  // UI render
   const tabs = ["STATUS WINDOW","DAILY QUESTS","REWARDS INVENTORY"];
   return (
-    <div style={{minHeight: "100vh",background:"#111929"}}>
+    <div style={{minHeight:"100vh",background:"#111929"}}>
       <div className="mx-auto max-w-3xl p-0">
         <header className="flex flex-col md:flex-row md:items-center md:justify-between p-6">
           <span className="main-heading text-3xl tracking-wider md:mb-0 mb-3">HUNTER SYSTEM V2.0</span>
           <div className="rounded px-4 py-2 bg-[#171f2c] flex items-center justify-end min-w-[160px]">
             <span style={{color:'#40e5fa',letterSpacing:".08em"}} className="text-base font-bold tracking-wide">USER: {state.profile.name||"Hunter"}</span>
             <button onClick={()=>setModal("settings")} title="Edit Display Name"
-                className="ml-3 px-0 py-1 border-0 bg-transparent text-[#12e9ff] hover:text-[#07e3fe] text-2xl" aria-label="settings">&#9881;</button>
+              className="ml-3 px-0 py-1 border-0 bg-transparent text-[#12e9ff] hover:text-[#07e3fe] text-2xl" aria-label="settings">&#9881;</button>
           </div>
         </header>
         <nav className="tab-bar mt-1 mb-1 flex flex-row justify-center px-2">
@@ -239,16 +273,24 @@ function App() {
             </div>
             <div className="max-w-xl mx-auto bg-[#182239] border-[1.2px] border-[#1af1fe88] rounded-xl px-8 py-6 shadow-lg flex flex-col gap-4">
               <div>
-                <span className="main-heading text-lg inline-block mb-1">LEVEL {state.profile.level} <span className="font-normal text-base text-[#4beefe] ml-2">(Novice Hunter)</span></span>
+                <span className="main-heading text-lg inline-block mb-1">LEVEL {state.profile.level} <span className="font-normal text-base text-[#4beefe] ml-2">({getRankTitle(state.profile.level)})</span></span>
                 <div className="exp-bar-bg mt-3 mb-2">
                   <div className="exp-bar" style={{width:`${(state.profile.xp%100)}%`}}></div>
                 </div>
                 <span className="block text-xs text-[#97f1fe] pb-2">EXP: {state.profile.xp} Total | {100-(state.profile.xp%100)} EXP TO LEVEL {state.profile.level+1}</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                <div className="bg-[#101e2a] rounded-lg p-3 text-center section-label" style={{fontSize:"1rem"}}>⚡ MANA / FOCUS<br/><span className="main-heading text-lg" style={{color:"#19e5f7"}}>100%</span></div>
-                <div className="bg-[#101e2a] rounded-lg p-3 text-center section-label" style={{fontSize:"1rem"}}>🎁 REWARDS PENDING<br/><span className="text-[#1af1fe] text-lg">{(state.habits.filter(q=>q.streak>=7)).length}</span></div>
-                <div className="bg-[#101e2a] rounded-lg p-3 text-center section-label" style={{fontSize:"1rem"}}>🎯 TODAY'S COMPLETION<br/><span className="text-[#11e7fe] text-lg">{state.habits.filter(q=>q.logs.includes(todayISO())).length===0?"0":Math.round(state.habits.filter(q=>q.logs.includes(todayISO())).length/state.habits.length*100)}%</span></div>
+                <div className="bg-[#101e2a] rounded-lg p-3 flex items-center justify-center gap-2 section-label" style={{fontSize:"1rem"}}>
+                  <ManaIcon/>⚡ MANA / FOCUS: <b style={{color:"#19e5f7"}}>100%</b>
+                </div>
+                <div className="bg-[#101e2a] rounded-lg p-3 flex items-center justify-center gap-2 section-label" style={{fontSize:"1rem"}}>
+                  <RewardsIcon/>🎁 REWARDS PENDING: <b style={{color:"#1af1fe"}}>{(state.habits.filter(q=>q.streak>=7)).length}</b>
+                </div>
+                <div className="bg-[#101e2a] rounded-lg p-3 flex items-center justify-center gap-2 section-label" style={{fontSize:"1rem"}}>
+                  <CompletionIcon/>🎯 TODAY'S COMPLETION: <b style={{color:"#11e7fe"}}>
+                    {state.habits.length === 0 ? "0" : Math.round(state.habits.filter(q=>q.logs.includes(todayISO())).length/state.habits.length*100)}%
+                  </b>
+                </div>
               </div>
             </div>
           </>)}
@@ -257,7 +299,7 @@ function App() {
             <div className="flex justify-end pr-8 pb-4">
               <button className="btn-create tracking-wider" title="Create new quest" onClick={()=>setModal("create")}>CREATE NEW QUEST</button>
             </div>
-            {state.habits.length===0 && <div className="py-16 text-center text-xl text-[#38fefb99]">No Quests Active. Click 'Create New Quest' to begin!</div>}
+            {state.habits.length===0 && <div className="py-16 text-center text-[#38fefb99]">No Quests Active. Click 'Create New Quest' to begin!</div>}
             <div className="space-y-6">
               {state.habits.map((h,idx)=>(
                 <div key={h.id} className="glass-panel-lg mb-1 bg-[#15213adde] border-[1.4px] border-[#03e3fe80] shadow-md flex items-center gap-6">
