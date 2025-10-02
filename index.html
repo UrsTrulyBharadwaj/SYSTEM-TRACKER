@@ -281,14 +281,14 @@ function App() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                 <div className="bg-[#101e2a] rounded-lg p-3 flex items-center justify-center gap-2 section-label" style={{fontSize:"1rem"}}>
-                  <ManaIcon/>⚡ MANA / FOCUS: <b style={{color:"#19e5f7"}}>100%</b>
+                  <ManaIcon/>⚡ MANA / FOCUS:<b style={{color:"#19e5f7"}}>100%</b>
                 </div>
                 <div className="bg-[#101e2a] rounded-lg p-3 flex items-center justify-center gap-2 section-label" style={{fontSize:"1rem"}}>
-                  <RewardsIcon/>🎁 REWARDS PENDING: <b style={{color:"#1af1fe"}}>{(state.habits.filter(q=>q.streak>=7)).length}</b>
+                  <RewardsIcon/>🎁 REWARDS PENDING:<b style={{color:"#1af1fe"}}>{(state.habits.filter(q=>q.streak>=7)).length}</b>
                 </div>
                 <div className="bg-[#101e2a] rounded-lg p-3 flex items-center justify-center gap-2 section-label" style={{fontSize:"1rem"}}>
-                  <CompletionIcon/>🎯 TODAY'S COMPLETION: <b style={{color:"#11e7fe"}}>
-                    {state.habits.length === 0 ? "0" : Math.round(state.habits.filter(q=>q.logs.includes(todayISO())).length/state.habits.length*100)}%
+                  <CompletionIcon/>🎯 TODAY'S COMPLETION:<b style={{color:"#11e7fe"}}>
+                    {state.habits.length === 0? "0" : Math.round(state.habits.filter(q=>q.logs.includes(todayISO())).length/state.habits.length*100)}%
                   </b>
                 </div>
               </div>
