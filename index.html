@@ -178,22 +178,20 @@
         // --- MAIN APP COMPONENT ---
         const App = () => {
             const [userId, setUserId] = React.useState(null);
-            const [isAuthReady, setIsAuthReady] = React.useState(false);
+            const [isAuthReady, setIsAuthReady] = React.useState(false); 
             const [activeTab, setActiveTab] = React.useState('STATUS WINDOW');
-            const [habits, setHabits] = React.useState([]);
-            const [rewards, setRewards] = React.useState([]);
+            const [habits, setHabits] = React.useState(null); 
+            const [rewards, setRewards] = React.useState(null); 
             const [xp, setXp] = React.useState(0);
             const [level, setLevel] = React.useState(1);
             const [displayName, setDisplayName] = React.useState('Hunter');
-            const [modal, setModal] = React.useState(null); // 'createHabit', 'message', 'settings'
+            const [modal, setModal] = React.useState(null); 
             const [showSettingsPrompt, setShowSettingsPrompt] = React.useState(false);
-            // State to store pre-calculated daily completion status to avoid slow reads
             const [completionCache, setCompletionCache] = React.useState({}); 
             const todayISO = new Date().toISOString().split('T')[0];
 
 
-            // --- FIREBASE AUTH & INIT ---
-            // This hook handles sign-in and sets up the onAuthStateChanged listener
+            // --- FIREBASE AUTH & INIT (Combined Auth and Data Setup) ---
             React.useEffect(() => {
                 if (!firebaseConfig) return console.error("Firebase config not available.");
                 
@@ -205,14 +203,12 @@
                             await window.signInAnonymously(auth);
                         }
                     } catch (error) {
-                        console.error("Firebase Auth error:", error);
-                        // Fallback to anonymous sign-in if custom token fails
+                        console.error("Firebase Auth error during initial sign-in:", error);
                         await window.signInAnonymously(auth); 
                     }
                 };
                 
-                // This function is defined outside and called in onAuthStateChanged
-                // It handles all Firestore subscriptions and returns an array of unsubscribe functions
+                // This is the dedicated function to start all data subscriptions
                 const setupSubscriptions = (uid) => {
                     if (!uid) return [];
 
@@ -240,7 +236,6 @@
                             setShowSettingsPrompt(true);
                         }
                     }, (error) => {
-                         // This is where the permission error logs occur. They should be handled gracefully.
                          console.error("Error subscribing to profile:", error);
                     });
                     unsubscribes.push(unsubscribeProfile);
@@ -278,47 +273,49 @@
                 let currentUnsubscribes = [];
 
                 const unsubscribeAuth = window.onAuthStateChanged(auth, (user) => {
-                    // 1. Clean up old subscriptions first
+                    // Clean up old subscriptions first
                     currentUnsubscribes.forEach(unsub => unsub());
 
                     if (user) {
                         setUserId(user.uid);
-                        // 2. Setup new subscriptions ONLY when user is confirmed
+                        // Setup new subscriptions ONLY when user is confirmed
                         currentUnsubscribes = setupSubscriptions(user.uid);
                     } else {
-                        // User is null (e.g., failed sign-in), set a fallback ID for data segregation
+                        // User is null (e.g., failed sign-in), set a fallback ID
                         setUserId(crypto.randomUUID());
-                        // No subscriptions for a non-authenticated state; the client handles the loading state.
                     }
-                    setIsAuthReady(true);
+                    // Crucial fix: Mark Auth Ready to allow UI render, regardless of success/failure.
+                    setIsAuthReady(true); 
                 });
 
                 signIn();
                 
-                // Cleanup function for the component
                 return () => {
                     unsubscribeAuth();
                     currentUnsubscribes.forEach(unsub => unsub());
                 };
-            }, []); // Empty dependency array means this runs only on mount
+            }, []);
 
             // --- PROFILE UPDATE HANDLER ---
             const updateProfileDisplayName = async (newDisplayName) => {
                 if (!userId || !newDisplayName) return;
                 const profileRef = getProfileRef(userId);
-                await window.updateDoc(profileRef, { displayName: newDisplayName });
-                setDisplayName(newDisplayName);
-                setShowSettingsPrompt(false);
-                setModal(null);
+                try {
+                    await window.updateDoc(profileRef, { displayName: newDisplayName });
+                    setDisplayName(newDisplayName);
+                    setShowSettingsPrompt(false);
+                    setModal(null);
+                } catch (e) {
+                     setModal({ type: 'message', title: 'Error', content: 'Could not save display name. Ensure your connection is stable.' });
+                }
             };
 
-            // --- ACTION HANDLERS ---
+            // --- ACTION HANDLERS (Omitted for brevity, but same as previous correct version) ---
             const check7DayStreakAndReward = async (habit, logs) => {
                 const streak = calculateStreak(logs);
                 const rewardRef = getRewardsCollection(userId);
                 
                 if (streak >= 7 && habit.rewardDescription) {
-                    // Check if reward for this streak has already been granted today
                     const q = window.query(rewardRef, window.where('habitId', '==', habit.id), window.where('status', '==', 'UNCLAIMED'));
                     const existingRewards = await window.getDocs(q);
 
@@ -350,15 +347,9 @@
                     return;
                 }
 
-                // 1. Log the completion
                 await window.addDoc(logRef, { date: today, claimedAt: new Date().toISOString() });
+                await window.updateDoc(habitDocRef, { lastClaimDate: today });
                 
-                // --- OPTIMIZATION: Update the habit itself with lastClaimDate ---
-                await window.updateDoc(habitDocRef, {
-                    lastClaimDate: today, // New field for fast completion check
-                });
-                
-                // 2. Recalculate streak and check for reward (Need to fetch ALL logs to recalculate streak correctly)
                 const allLogsSnapshot = await window.getDocs(logRef);
                 const allLogs = allLogsSnapshot.docs.map(d => d.data());
                 const streak = calculateStreak(allLogs);
@@ -366,15 +357,11 @@
                 
                 await check7DayStreakAndReward(habit, allLogs);
 
-                // 3. Update XP and Level
                 const newXp = xp + expGained;
-                const newLevel = Math.floor(newXp / 100) + 1; // Simple progression: 100 XP per level
+                const newLevel = Math.floor(newXp / 100) + 1;
                 const profileRef = getProfileRef(userId);
                 
-                await window.updateDoc(profileRef, {
-                    xp: newXp,
-                    level: newLevel,
-                });
+                await window.updateDoc(profileRef, { xp: newXp, level: newLevel, });
 
                 setModal({ type: 'message', title: 'EXP GAINED', content: `+${expGained} XP! Current Streak: ${streak + 1} days.` });
             };
@@ -388,7 +375,7 @@
                         rewardDescription: habitData.rewardDescription,
                         createdAt: new Date().toISOString(),
                         status: 'ACTIVE',
-                        lastClaimDate: null, // Initialize new field
+                        lastClaimDate: null, 
                     });
                     setModal(null);
                 } catch (error) {
@@ -405,12 +392,12 @@
             
             // --- MEMORIZED/DERIVED STATE ---
 
-            const currentExp = xp % 100; // XP within the current level (0-99)
+            const currentExp = xp % 100;
             const expToNextLevel = 100;
             const progressPercent = (currentExp / expToNextLevel) * 100;
 
-            // --- SUB-COMPONENTS ---
-
+            // --- SUB-COMPONENTS (Omitted for brevity, but same as previous correct version) ---
+            
             const SettingsModal = ({ onSave }) => {
                 const [name, setName] = React.useState(displayName);
 
@@ -505,6 +492,16 @@
             };
             
             const StatusWindow = () => {
+                // If data hasn't loaded (habits is null), show the loading component
+                if (habits === null) {
+                    return (
+                        <div className="flex flex-col items-center justify-center p-10 space-y-4">
+                            <div className="loading-spinner"></div>
+                            <p className="text-gray-500">Retrieving Hunter Data...</p>
+                        </div>
+                    );
+                }
+                
                 const greeting = getDynamicGreeting(displayName, level);
 
                 const XPBar = ({ value, max, label, color }) => (
@@ -592,6 +589,15 @@
             };
 
             const DailyQuests = () => {
+                if (habits === null) {
+                    return (
+                        <div className="flex flex-col items-center justify-center p-10 space-y-4">
+                            <div className="loading-spinner"></div>
+                            <p className="text-gray-500">Retrieving Quest Log...</p>
+                        </div>
+                    );
+                }
+                
                 // Placeholder for CSV Export
                 const handleExportCSV = () => {
                     setModal({ type: 'message', title: 'EXPORT UNAVAILABLE', content: 'CSV export functionality requires external processing and is not implemented in this version. Data is safely stored in Firestore.' });
@@ -660,27 +666,34 @@
             const RewardsInventory = () => (
                 <div className="p-6 space-y-6">
                     <h3 className={`text-xl font-bold ${NEON_BLUE}`}>EARNED REWARDS</h3>
-                    {rewards.filter(r => r.status === 'UNCLAIMED').length === 0 && (
+                    {rewards === null && (
+                        <div className="flex items-center justify-start text-gray-500 pt-4">
+                           <span className="loading-spinner w-4 h-4 mr-3"></span> Retrieving Inventory...
+                        </div>
+                    )}
+                    {rewards !== null && rewards.filter(r => r.status === 'UNCLAIMED').length === 0 && (
                         <p className="text-gray-500 pt-4">Complete 7-day streaks to earn rewards!</p>
                     )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {rewards.filter(r => r.status === 'UNCLAIMED').map(reward => (
-                            <div key={reward.id} className="p-4 bg-gray-800 rounded-lg border border-[#00FF00] shadow-[0_0_10px_#00FF00]">
-                                <p className={`text-lg font-semibold ${NEON_GREEN}`}>{reward.name}</p>
-                                <p className="text-sm text-gray-400">Status: UNCLAIMED</p>
-                                <p className="text-xs text-gray-500">Unlocked: {new Date(reward.dateUnlocked).toLocaleDateString()}</p>
-                                <button
-                                    onClick={() => handleClaimReward(reward.id)}
-                                    className="mt-3 py-1 px-3 text-xs rounded font-bold text-white bg-red-600 hover:bg-red-700 transition duration-200"
-                                >
-                                    SPEND/CLAIM REWARD
-                                </button>
-                            </div>
-                        ))}
-                    </div>
+                    {rewards !== null && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {rewards.filter(r => r.status === 'UNCLAIMED').map(reward => (
+                                <div key={reward.id} className="p-4 bg-gray-800 rounded-lg border border-[#00FF00] shadow-[0_0_10px_#00FF00]">
+                                    <p className={`text-lg font-semibold ${NEON_GREEN}`}>{reward.name}</p>
+                                    <p className="text-sm text-gray-400">Status: UNCLAIMED</p>
+                                    <p className="text-xs text-gray-500">Unlocked: {new Date(reward.dateUnlocked).toLocaleDateString()}</p>
+                                    <button
+                                        onClick={() => handleClaimReward(reward.id)}
+                                        className="mt-3 py-1 px-3 text-xs rounded font-bold text-white bg-red-600 hover:bg-red-700 transition duration-200"
+                                    >
+                                        SPEND/CLAIM REWARD
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                     <h4 className={`text-lg font-bold text-gray-500 mt-8`}>CLAIMED HISTORY</h4>
                     <div className="space-y-2 text-gray-600">
-                        {rewards.filter(r => r.status === 'CLAIMED').map(reward => (
+                        {rewards !== null && rewards.filter(r => r.status === 'CLAIMED').map(reward => (
                             <p key={reward.id} className="text-sm border-b border-gray-800 pb-1">
                                 {reward.name} - Claimed on {new Date(reward.dateClaimed).toLocaleDateString()}
                             </p>
@@ -689,21 +702,13 @@
                 </div>
             );
 
-            const LoadingOverlay = () => (
-                <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 text-white">
-                    <div className="loading-spinner mb-4"></div>
-                    <p className={`${NEON_BLUE} text-lg font-mono`}>SYSTEM INITIALIZING...</p>
-                    <p className="text-sm text-gray-500 mt-2">Authenticating Hunter Credentials...</p>
-                </div>
-            );
-
             const renderContent = () => {
-                // If authentication is not ready, display a full-page loading overlay
+                // If authentication is not ready, display the full-page loading overlay
                 if (!isAuthReady) {
                     return <LoadingOverlay />;
                 }
 
-                // Once authenticated, render the selected content (Status Window, Quests, or Rewards)
+                // Once authenticated, render the selected content. Content will handle its own loading state.
                 switch (activeTab) {
                     case 'STATUS WINDOW': return <StatusWindow />;
                     case 'DAILY QUESTS': return <DailyQuests />;
@@ -711,6 +716,14 @@
                     default: return <StatusWindow />;
                 }
             };
+
+            const LoadingOverlay = () => (
+                <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 text-white">
+                    <div className="loading-spinner mb-4"></div>
+                    <p className={`${NEON_BLUE} text-lg font-mono`}>SYSTEM INITIALIZING...</p>
+                    <p className="text-sm text-gray-500 mt-2">Authenticating Hunter Credentials...</p>
+                </div>
+            );
 
             return (
                 <div className={`min-h-screen ${BG_DARK} text-white font-sans antialiased`}>
