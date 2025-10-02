@@ -193,6 +193,13 @@
 
         // --- MAIN APP COMPONENT ---
         const App = () => {
+            // CRITICAL FIX: Check if the userId stored in localStorage is an old, invalid Firebase ID.
+            // If it starts with 'firebase_' or is too short, we delete it to force the login prompt.
+            const storedId = localStorage.getItem(STORAGE_KEY);
+            if (storedId && (storedId.includes('firebase_') || storedId.length < 5)) {
+                localStorage.removeItem(STORAGE_KEY);
+            }
+
             const [userId, setUserId] = React.useState(localStorage.getItem(STORAGE_KEY) || null); // Load ID instantly
             const [isSystemReady, setIsSystemReady] = React.useState(false); 
             const [activeTab, setActiveTab] = React.useState('STATUS WINDOW');
