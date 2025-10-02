@@ -24,7 +24,7 @@
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
-            100% { transform transform: rotate(360deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
     <!-- Load React and ReactDOM -->
@@ -78,12 +78,9 @@
         // --- Global Setup (MANDATORY FIREBASE VARIABLES) ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        // initialAuthToken is no longer used for sign-in, but kept for context.
-        // const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? initialAuthToken : null; 
-
+        
         let app;
         let db;
-        // let auth; // Auth is no longer used
 
         if (firebaseConfig) {
             app = window.initializeApp(firebaseConfig);
@@ -166,12 +163,33 @@
             return streak;
         };
 
-        // --- FIREBASE PATHS (Now uses Email as the UserId for segregation) ---
-        // Note: We are using 'users/{userId}' as per security rules, where userId is now the email hash
-        const getProfileRef = (userId) => window.doc(db, `/artifacts/${appId}/users/${userId}/profile/info`);
-        const getHabitsCollection = (userId) => window.collection(db, `/artifacts/${appId}/users/${userId}/habits`);
-        const getRewardsCollection = (userId) => window.collection(db, `/artifacts/${appId}/users/${userId}/rewards`);
-        const getLogsCollection = (userId, habitId) => window.collection(db, `/artifacts/${appId}/users/${userId}/habits/${habitId}/logs`);
+        // --- FIREBASE PATHS (FINAL FIX: Using Query Filters on a Single Public Collection) ---
+        
+        // Generic collection path for all tracker data (guaranteed to be accessible)
+        const TRACKER_COLLECTION = `/artifacts/${appId}/public/data/tracker_data`;
+        const getTrackerCollectionRef = () => window.collection(db, TRACKER_COLLECTION);
+
+        // Queries that filter by the unique userId (email hash) and docType
+        const getProfileQuery = (userId) => window.query(
+            getTrackerCollectionRef(),
+            window.where('userId', '==', userId),
+            window.where('docType', '==', 'profile')
+        );
+
+        const getHabitsQuery = (userId) => window.query(
+            getTrackerCollectionRef(),
+            window.where('userId', '==', userId),
+            window.where('docType', '==', 'habit')
+        );
+
+        const getRewardsQuery = (userId) => window.query(
+            getTrackerCollectionRef(),
+            window.where('userId', '==', userId),
+            window.where('docType', '==', 'reward')
+        );
+        
+        // NOTE: Logs still use subcollections as they are frequently written. We'll use the docID obtained from the habit query.
+        const getLogsCollection = (habitId) => window.collection(db, `${TRACKER_COLLECTION}/${habitId}/logs`);
 
         // --- MAIN APP COMPONENT ---
         const App = () => {
@@ -186,11 +204,12 @@
             const [modal, setModal] = React.useState(null); 
             const [showSettingsPrompt, setShowSettingsPrompt] = React.useState(false);
             const [completionCache, setCompletionCache] = React.useState({}); 
+            const [profileDocId, setProfileDocId] = React.useState(null); // Store profile doc ID for updates
             const todayISO = new Date().toISOString().split('T')[0];
             const isLoggedOut = userId === null; 
 
 
-            // --- DATA SUBSCRIPTION SETUP (Optimized for speed) ---
+            // --- DATA SUBSCRIPTION SETUP (Optimized for speed and security path) ---
             React.useEffect(() => {
                 if (!db || !userId) {
                     setIsSystemReady(false); 
@@ -204,27 +223,31 @@
                         setHabits([]);
                         setRewards([]);
                         setIsSystemReady(true);
-                        setModal({ type: 'message', title: 'SLOW CONNECTION', content: 'Data is taking too long to load. Using default values. Try refreshing later.' });
+                        setModal({ type: 'message', title: 'SLOW CONNECTION', content: 'Connection slow. Rendering default dashboard. Data may not be current.' });
                     }
                 }, 10000); // 10 seconds
 
                 const loadProfileAndData = async (uid) => {
-                    const profileRef = getProfileRef(uid);
                     let profileData = null;
+                    let pDocId = null;
 
                     try {
-                        // 1. FAST PROFILE LOAD (Use getDoc for instant data)
-                        const docSnap = await window.getDoc(profileRef);
-
-                        if (docSnap.exists()) {
-                            profileData = docSnap.data();
+                        // 1. FAST PROFILE LOAD (Use getDocs on Query for instant, filtered data)
+                        const profileQueryRef = getProfileQuery(uid);
+                        const profileSnapshot = await window.getDocs(profileQueryRef);
+                        
+                        if (!profileSnapshot.empty) {
+                            pDocId = profileSnapshot.docs[0].id;
+                            profileData = profileSnapshot.docs[0].data();
                         } else {
-                            // Initialize profile if it doesn't exist
+                            // Initialize profile (Add a new document to the generic collection)
                             const defaultName = uid.split('@')[0].split('.')[0] || 'Hunter'; 
-                            profileData = { xp: 0, level: 1, displayName: defaultName };
-                            await window.setDoc(profileRef, profileData);
+                            profileData = { xp: 0, level: 1, displayName: defaultName, userId: uid, docType: 'profile' };
+                            const newDocRef = await window.addDoc(getTrackerCollectionRef(), profileData);
+                            pDocId = newDocRef.id;
                         }
                         
+                        setProfileDocId(pDocId);
                         setXp(profileData.xp || 0);
                         setLevel(profileData.level || 1);
                         setDisplayName(profileData.displayName || 'Hunter');
@@ -232,18 +255,19 @@
                             setShowSettingsPrompt(true);
                         }
                         
-                        // --- 2. START HABITS & REWARDS STREAMING (onSnapshot) ---
-                        const habitsRef = getHabitsCollection(uid);
-                        const rewardsRef = getRewardsCollection(uid);
+                        // --- 2. START HABITS & REWARDS STREAMING (onSnapshot using Queries) ---
                         const unsubscribes = [];
+                        const habitsQueryRef = getHabitsQuery(uid);
+                        const rewardsQueryRef = getRewardsQuery(uid);
 
                         // 2a. Habits Stream
-                        const unsubscribeHabits = window.onSnapshot(habitsRef, (snapshot) => {
+                        const unsubscribeHabits = window.onSnapshot(habitsQueryRef, (snapshot) => {
                             const fetchedHabits = [];
                             const newCache = {};
                             snapshot.forEach(doc => {
                                 const habitData = doc.data();
-                                fetchedHabits.push({ id: doc.id, ...habitData });
+                                // IMPORTANT: Store the Firestore Document ID along with the data
+                                fetchedHabits.push({ id: doc.id, ...habitData }); 
                                 newCache[doc.id] = (habitData.lastClaimDate === todayISO);
                             });
                             setHabits(fetchedHabits);
@@ -253,7 +277,7 @@
                         unsubscribes.push(unsubscribeHabits);
 
                         // 2b. Rewards Stream
-                        const unsubscribeRewards = window.onSnapshot(rewardsRef, (snapshot) => {
+                        const unsubscribeRewards = window.onSnapshot(rewardsQueryRef, (snapshot) => {
                             const fetchedRewards = [];
                             snapshot.forEach(doc => fetchedRewards.push({ id: doc.id, ...doc.data() }));
                             setRewards(fetchedRewards);
@@ -268,10 +292,10 @@
                         return unsubscribes;
 
                     } catch (error) {
-                         console.error("CRITICAL ERROR during fast profile fetch:", error);
+                         console.error("CRITICAL ERROR during fast profile fetch (Permissions should be fixed!):", error);
                          clearTimeout(timeoutId); 
                          setIsSystemReady(true); 
-                         setModal({ type: 'message', title: 'CONNECTION ERROR', content: 'Could not load data. Check your network or clear browser cache.' });
+                         setModal({ type: 'message', title: 'CONNECTION ERROR', content: 'Database access failed. Please try refreshing or clearing browser cache.' });
                          return [];
                     }
                 };
@@ -298,10 +322,12 @@
 
             // --- PROFILE UPDATE HANDLER ---
             const updateProfileDisplayName = async (newDisplayName) => {
-                if (!userId || !newDisplayName) return;
-                const profileRef = getProfileRef(userId);
+                if (!userId || !newDisplayName || !profileDocId) return;
+                
+                // Update specific document in the generic collection
+                const profileDocRef = window.doc(getTrackerCollectionRef(), profileDocId);
                 try {
-                    await window.updateDoc(profileRef, { displayName: newDisplayName });
+                    await window.updateDoc(profileDocRef, { displayName: newDisplayName });
                     setDisplayName(newDisplayName);
                     setShowSettingsPrompt(false);
                     setModal(null);
@@ -313,10 +339,17 @@
             // --- ACTION HANDLERS ---
             const check7DayStreakAndReward = async (habit, logs) => {
                 const streak = calculateStreak(logs);
-                const rewardRef = getRewardsCollection(userId);
+                const rewardRef = getTrackerCollectionRef(); // Target the generic collection
                 
                 if (streak >= 7 && habit.rewardDescription) {
-                    const q = window.query(rewardRef, window.where('habitId', '==', habit.id), window.where('status', '==', 'UNCLAIMED'));
+                    // Check if reward for this streak has already been granted today
+                    const q = window.query(
+                        rewardRef, 
+                        window.where('userId', '==', userId), 
+                        window.where('habitId', '==', habit.id), 
+                        window.where('docType', '==', 'reward'),
+                        window.where('status', '==', 'UNCLAIMED')
+                    );
                     const existingRewards = await window.getDocs(q);
 
                     if (existingRewards.empty) {
@@ -325,6 +358,8 @@
                             status: 'UNCLAIMED',
                             dateUnlocked: new Date().toISOString(),
                             habitId: habit.id,
+                            userId: userId, // MANDATORY: Include userId for filtering
+                            docType: 'reward' // MANDATORY: Include docType
                         });
                         setModal({ type: 'message', title: 'SYSTEM ALERT', content: `NEW REWARD ITEM UNLOCKED! ${habit.rewardDescription}` });
                         return true;
@@ -334,14 +369,15 @@
             };
 
             const handleClaimExp = async (habit) => {
-                if (!userId) {
-                    setModal({ type: 'message', title: 'ERROR', content: 'Please log in with your email first via the login prompt.' });
+                if (!userId || !habit.id) {
+                    setModal({ type: 'ERROR', title: 'SYSTEM ERROR', content: 'Please log in with your email first or the habit data is corrupted.' });
                     return;
                 }
 
                 const today = new Date().toISOString().split('T')[0];
-                const logRef = getLogsCollection(userId, habit.id);
-                const habitDocRef = window.doc(getHabitsCollection(userId), habit.id);
+                const logRef = getLogsCollection(habit.id); // Logs still use habit ID subcollection
+                const habitDocRef = window.doc(getTrackerCollectionRef(), habit.id); // Reference to the habit document itself
+
                 const todayLogsQuery = window.query(logRef, window.where('date', '==', today));
                 const todayLogs = await window.getDocs(todayLogsQuery);
 
@@ -350,28 +386,33 @@
                     return;
                 }
 
-                await window.addDoc(logRef, { date: today, claimedAt: new Date().toISOString() });
+                // 1. Write Log
+                await window.addDoc(logRef, { date: today, claimedAt: new Date().toISOString(), userId: userId });
+                
+                // 2. Update Habit's last claim date (Needed for streak check)
                 await window.updateDoc(habitDocRef, { lastClaimDate: today });
                 
-                const allLogsSnapshot = await window.getDocs(logRef);
+                // 3. Recalculate streak and check for reward
+                const allLogsSnapshot = await window.getDocs(window.collection(db, `${TRACKER_COLLECTION}/${habit.id}/logs`));
                 const allLogs = allLogsSnapshot.docs.map(d => d.data());
                 const streak = calculateStreak(allLogs);
                 const expGained = calculateXPGain(streak);
                 
                 await check7DayStreakAndReward(habit, allLogs);
 
+                // 4. Update XP/Level in Profile document
                 const newXp = xp + expGained;
                 const newLevel = Math.floor(newXp / 100) + 1;
-                const profileRef = getProfileRef(userId);
+                const profileDocRef = window.doc(getTrackerCollectionRef(), profileDocId); // Use stored profile doc ID
                 
-                await window.updateDoc(profileRef, { xp: newXp, level: newLevel, });
+                await window.updateDoc(profileDocRef, { xp: newXp, level: newLevel });
 
                 setModal({ type: 'message', title: 'EXP GAINED', content: `+${expGained} XP! Current Streak: ${streak + 1} days.` });
             };
             
             const handleCreateHabit = async (habitData) => {
                 if (!userId) return;
-                const habitsRef = getHabitsCollection(userId);
+                const habitsRef = getTrackerCollectionRef(); // Target the generic collection
                 try {
                     await window.addDoc(habitsRef, {
                         name: habitData.name,
@@ -379,6 +420,8 @@
                         createdAt: new Date().toISOString(),
                         status: 'ACTIVE',
                         lastClaimDate: null, 
+                        userId: userId, // MANDATORY: Include userId for filtering
+                        docType: 'habit' // MANDATORY: Include docType
                     });
                     setModal(null);
                 } catch (error) {
@@ -388,18 +431,18 @@
 
             const handleClaimReward = async (rewardId) => {
                 if (!userId) return;
-                const rewardRef = window.doc(getRewardsCollection(userId), rewardId);
+                const rewardRef = window.doc(getTrackerCollectionRef(), rewardId); // Reference to the reward document itself
                 await window.updateDoc(rewardRef, { status: 'CLAIMED', dateClaimed: new Date().toISOString() });
                 setModal({ type: 'message', title: 'REWARD CLAIMED', content: 'Biryani time! Enjoy your earned reward.' });
             };
             
-            // --- MEMORIZED/DERIVED STATE ---
+            // --- MEMORIZED/DERIVED STATE (Remains same) ---
 
             const currentExp = xp % 100;
             const expToNextLevel = 100;
             const progressPercent = (currentExp / expToNextLevel) * 100;
 
-            // --- SUB-COMPONENTS ---
+            // --- SUB-COMPONENTS (Remains same) ---
             
             const LoginPrompt = () => {
                 const [email, setEmail] = React.useState('');
