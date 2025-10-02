@@ -36,15 +36,12 @@
     <!-- Load Firebase SDKs -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-      import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+      // REMOVED: import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
       import { getFirestore, collection, doc, setDoc, query, where, onSnapshot, updateDoc, getDocs, addDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
       
       // Attach Firebase services to the window for the React component to use
       window.initializeApp = initializeApp;
-      window.getAuth = getAuth;
-      window.signInWithCustomToken = signInWithCustomToken;
-      window.signInAnonymously = signInAnonymously;
-      window.onAuthStateChanged = onAuthStateChanged;
+      // REMOVED: window.getAuth, signInWithCustomToken, etc.
       window.getFirestore = getFirestore;
       window.collection = collection;
       window.doc = doc;
@@ -81,17 +78,16 @@
         // --- Global Setup (MANDATORY FIREBASE VARIABLES) ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? initialAuthToken : null; 
+        // initialAuthToken is no longer used for sign-in, but kept for context.
+        // const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? initialAuthToken : null; 
 
         let app;
         let db;
-        let auth;
+        // let auth; // Auth is no longer used
 
         if (firebaseConfig) {
-            // Use window objects attached above
             app = window.initializeApp(firebaseConfig);
             db = window.getFirestore(app);
-            auth = window.getAuth(app);
         }
 
         // --- CONSTANTS AND THEME ---
@@ -99,6 +95,7 @@
         const NEON_GREEN = 'text-[#00FF00]'; // Secondary action color
         const BG_DARK = 'bg-gray-900';
         const BORDER_NEON = 'border-[#00F0FF]';
+        const STORAGE_KEY = 'hunterSystemUserId'; // Local Storage key
 
         // LEVEL TITLES for RPG Vibe
         const getRankTitle = (level) => {
@@ -169,7 +166,8 @@
             return streak;
         };
 
-        // --- FIREBASE PATHS ---
+        // --- FIREBASE PATHS (Now uses Email as the UserId for segregation) ---
+        // Note: We are using 'users/{userId}' as per security rules, where userId is now the email hash
         const getProfileRef = (userId) => window.doc(db, `/artifacts/${appId}/users/${userId}/profile/info`);
         const getHabitsCollection = (userId) => window.collection(db, `/artifacts/${appId}/users/${userId}/habits`);
         const getRewardsCollection = (userId) => window.collection(db, `/artifacts/${appId}/users/${userId}/rewards`);
@@ -177,10 +175,9 @@
 
         // --- MAIN APP COMPONENT ---
         const App = () => {
-            const [userId, setUserId] = React.useState(null);
-            const [isAuthReady, setIsAuthReady] = React.useState(false); 
+            const [userId, setUserId] = React.useState(localStorage.getItem(STORAGE_KEY) || null); // Load ID instantly
+            const [isSystemReady, setIsSystemReady] = React.useState(false); 
             const [activeTab, setActiveTab] = React.useState('STATUS WINDOW');
-            // Data states now start as null to show loading indicator within components
             const [habits, setHabits] = React.useState(null); 
             const [rewards, setRewards] = React.useState(null); 
             const [xp, setXp] = React.useState(0);
@@ -190,33 +187,18 @@
             const [showSettingsPrompt, setShowSettingsPrompt] = React.useState(false);
             const [completionCache, setCompletionCache] = React.useState({}); 
             const todayISO = new Date().toISOString().split('T')[0];
+            const isLoggedOut = userId === null; // User must enter email to proceed
 
 
-            // --- FIREBASE AUTH & INIT (Combined Auth and Data Setup) ---
+            // --- DATA SUBSCRIPTION SETUP ---
             React.useEffect(() => {
-                if (!firebaseConfig) {
-                    console.error("Firebase config not available. Skipping auth.");
-                    setIsAuthReady(true); // Render UI even if Firebase isn't available
-                    return;
+                if (!db || !userId) {
+                    // Wait for userId (email) to be set
+                    if (userId) setIsSystemReady(false); // Only if userId exists but subscriptions haven't started
+                    return; 
                 }
-                
-                const signIn = async () => {
-                    try {
-                        if (initialAuthToken) {
-                            await window.signInWithCustomToken(auth, initialAuthToken);
-                        } else {
-                            await window.signInAnonymously(auth);
-                        }
-                    } catch (error) {
-                        console.error("Firebase Auth error during initial sign-in:", error);
-                        await window.signInAnonymously(auth); 
-                    }
-                };
-                
-                // This is the dedicated function to start all data subscriptions
-                const setupSubscriptions = (uid) => {
-                    if (!uid) return [];
 
+                const setupSubscriptions = (uid) => {
                     const profileRef = getProfileRef(uid);
                     const habitsRef = getHabitsCollection(uid);
                     const rewardsRef = getRewardsCollection(uid);
@@ -235,13 +217,16 @@
                             }
                         } else {
                             // Initialize profile if it doesn't exist
-                            const initialDisplayName = auth.currentUser?.email?.split('@')[0] || 'Hunter';
-                            await window.setDoc(profileRef, { xp: 0, level: 1, displayName: initialDisplayName });
-                            setDisplayName(initialDisplayName);
+                            // Use the first part of the email as the default display name
+                            const defaultName = uid.split('@')[0].split('.')[0] || 'Hunter'; 
+                            await window.setDoc(profileRef, { xp: 0, level: 1, displayName: defaultName });
+                            setDisplayName(defaultName);
                             setShowSettingsPrompt(true);
                         }
+                        setIsSystemReady(true); // Data loaded (or initialized)
                     }, (error) => {
                          console.error("Error subscribing to profile:", error);
+                         setIsSystemReady(true); // Stop loading hang even on error
                     });
                     unsubscribes.push(unsubscribeProfile);
 
@@ -275,31 +260,21 @@
                     return unsubscribes;
                 };
 
-                let currentUnsubscribes = [];
-
-                const unsubscribeAuth = window.onAuthStateChanged(auth, (user) => {
-                    // Clean up old subscriptions first
-                    currentUnsubscribes.forEach(unsub => unsub());
-
-                    if (user) {
-                        setUserId(user.uid);
-                        // Setup new subscriptions ONLY when user is confirmed
-                        currentUnsubscribes = setupSubscriptions(user.uid);
-                    } else {
-                        // User is null (e.g., failed sign-in), set a fallback ID
-                        setUserId(crypto.randomUUID());
-                    }
-                    // FINAL FIX: Mark Auth Ready to allow UI render IMMEDIATELY
-                    setIsAuthReady(true); 
-                });
-
-                signIn();
+                const currentUnsubscribes = setupSubscriptions(userId);
                 
                 return () => {
-                    unsubscribeAuth();
                     currentUnsubscribes.forEach(unsub => unsub());
                 };
-            }, []);
+            }, [userId]); // Reruns only when userId (email) changes
+
+            // --- LOCAL AUTH HANDLER ---
+            const handleLogin = (email) => {
+                const uniqueId = email.toLowerCase().replace(/[^a-z0-9]/g, ''); // Simple hash for Firebase ID
+                localStorage.setItem(STORAGE_KEY, uniqueId);
+                setUserId(uniqueId);
+                setIsSystemReady(false); // Force state reset to reload subscriptions
+                setModal(null);
+            };
 
             // --- PROFILE UPDATE HANDLER ---
             const updateProfileDisplayName = async (newDisplayName) => {
@@ -315,8 +290,9 @@
                 }
             };
 
-            // --- ACTION HANDLERS (Omitted for brevity, but same as previous correct version) ---
+            // --- ACTION HANDLERS ---
             const check7DayStreakAndReward = async (habit, logs) => {
+                // ... (Logic remains the same)
                 const streak = calculateStreak(logs);
                 const rewardRef = getRewardsCollection(userId);
                 
@@ -339,7 +315,10 @@
             };
 
             const handleClaimExp = async (habit) => {
-                if (!userId) return;
+                if (!userId) {
+                    setModal({ type: 'message', title: 'ERROR', content: 'Please log in with your email first via the login prompt.' });
+                    return;
+                }
 
                 const today = new Date().toISOString().split('T')[0];
                 const logRef = getLogsCollection(userId, habit.id);
@@ -401,8 +380,48 @@
             const expToNextLevel = 100;
             const progressPercent = (currentExp / expToNextLevel) * 100;
 
-            // --- SUB-COMPONENTS (Omitted for brevity, but same as previous correct version) ---
+            // --- SUB-COMPONENTS ---
             
+            const LoginPrompt = () => {
+                const [email, setEmail] = React.useState('');
+                const [error, setError] = React.useState('');
+
+                const validateEmail = (e) => {
+                    e.preventDefault();
+                    if (!email || !email.includes('@')) {
+                        setError('SYSTEM ERROR: Invalid email format.');
+                        return;
+                    }
+                    handleLogin(email);
+                };
+
+                return (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-4">
+                        <div className={`${BG_DARK} border-2 ${BORDER_NEON} p-8 rounded-lg shadow-2xl w-full max-w-md`}>
+                            <h3 className={`text-2xl font-extrabold ${NEON_BLUE} mb-2`}>HUNTER REGISTRATION</h3>
+                            <p className="text-gray-400 mb-6">Enter your email ID. This acts as your secure Hunter Profile ID. Your data will be instantly loaded or created.</p>
+                            
+                            <form onSubmit={validateEmail}>
+                                <input
+                                    type="email"
+                                    placeholder="your.email@example.com"
+                                    value={email}
+                                    onChange={(e) => { setEmail(e.target.value); setError(''); }}
+                                    className={`w-full p-3 mt-2 rounded bg-gray-800 ${BORDER_NEON} border text-white focus:outline-none focus:ring-1 focus:ring-[#00F0FF]`}
+                                />
+                                {error && <p className="text-red-500 mt-2 text-sm">{error}</p>}
+                                <button
+                                    type="submit"
+                                    className={`mt-6 w-full py-3 rounded font-bold text-white transition duration-200 ${NEON_GREEN} border border-[#00FF00] hover:bg-[#00FF00] hover:text-gray-900`}
+                                >
+                                    ACCESS SYSTEM
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                );
+            };
+
             const SettingsModal = ({ onSave }) => {
                 const [name, setName] = React.useState(displayName);
 
@@ -714,8 +733,23 @@
             };
 
             const renderContent = () => {
-                // Since isAuthReady is set to true immediately, we bypass the full-screen loading overlay.
-                // The individual components now handle their own loading (habits === null).
+                // If not logged in, show the login prompt immediately
+                if (isLoggedOut) {
+                    return <LoginPrompt />;
+                }
+
+                // If logged in but data is not ready, show a subtle overlay on the tabs
+                if (!isSystemReady) {
+                    return (
+                        <div className="p-10 flex flex-col items-center justify-center">
+                            <div className="loading-spinner mb-4"></div>
+                            <p className={`${NEON_BLUE} text-lg font-mono`}>SYSTEM INITIALIZING...</p>
+                            <p className="text-sm text-gray-500 mt-2">Retrieving user profile and data...</p>
+                        </div>
+                    );
+                }
+
+                // Once logged in and system is ready, render the dashboard
                 switch (activeTab) {
                     case 'STATUS WINDOW': return <StatusWindow />;
                     case 'DAILY QUESTS': return <DailyQuests />;
@@ -746,21 +780,24 @@
                     {/* Main Content Area */}
                     <main className="max-w-4xl mx-auto pb-10">
                         {/* Tabs / Navigation */}
-                        <div className="flex justify-center p-4 space-x-2 border-b border-gray-700 sticky top-16 bg-gray-900 z-10">
-                            {['STATUS WINDOW', 'DAILY QUESTS', 'REWARDS INVENTORY'].map(tab => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`px-4 py-2 text-sm font-bold uppercase rounded-t transition duration-200 ${
-                                        activeTab === tab
-                                            ? `bg-gray-800 ${NEON_BLUE} border-b-2 border-[#00F0FF] shadow-[0_4px_10px_rgba(0,240,255,0.3)]`
-                                            : 'text-gray-400 hover:text-white'
-                                    }`}
-                                >
-                                    {tab}
-                                </button>
-                            ))}
-                        </div>
+                        {!isLoggedOut && (
+                            <div className="flex justify-center p-4 space-x-2 border-b border-gray-700 sticky top-16 bg-gray-900 z-10">
+                                {['STATUS WINDOW', 'DAILY QUESTS', 'REWARDS INVENTORY'].map(tab => (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setActiveTab(tab)}
+                                        disabled={!isSystemReady}
+                                        className={`px-4 py-2 text-sm font-bold uppercase rounded-t transition duration-200 ${
+                                            activeTab === tab
+                                                ? `bg-gray-800 ${NEON_BLUE} border-b-2 border-[#00F0FF] shadow-[0_4px_10px_rgba(0,240,255,0.3)]`
+                                                : 'text-gray-400 hover:text-white disabled:opacity-50'
+                                        }`}
+                                    >
+                                        {tab}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
 
                         {/* Content */}
                         {renderContent()}
