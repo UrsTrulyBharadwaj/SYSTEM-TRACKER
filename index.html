@@ -1,895 +1,417 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hunter System V2.0 - RPG Habit Tracker</title>
-    <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        /* Custom font for the sci-fi look */
-        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
-        body {
-            font-family: 'Roboto Mono', monospace;
-            background-color: #0d1117; /* GitHub Dark Blue */
-        }
-        /* Custom spinner for loading state */
-        .loading-spinner {
-            border: 4px solid rgba(0, 240, 255, 0.2);
-            border-top: 4px solid #00F0FF;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
-    <!-- Load React and ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <!-- Load Babel for JSX compilation -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Load Firebase SDKs -->
-    <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-      // REMOVED: import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-      import { getFirestore, collection, doc, setDoc, query, where, onSnapshot, updateDoc, getDocs, addDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-      
-      // Attach Firebase services to the window for the React component to use
-      window.initializeApp = initializeApp;
-      // REMOVED: window.getAuth, signInWithCustomToken, etc.
-      window.getFirestore = getFirestore;
-      window.collection = collection;
-      window.doc = doc;
-      window.setDoc = setDoc;
-      window.query = query;
-      window.where = where;
-      window.onSnapshot = onSnapshot;
-      window.updateDoc = updateDoc;
-      window.getDocs = getDocs;
-      window.getDoc = getDoc; // Retained getDoc for fast fetch
-      window.addDoc = addDoc;
-      
-      // Load modern React 18 render utility
-      window.createRoot = ReactDOM.createRoot;
-    </script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Hunter System V2.0 – RPG Daily Tracker</title>
+
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- UI font -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #111827;
+      --muted: #9ca3af;
+      --neon: #00F0FF;
+      --accent: #22c55e;
+    }
+    body { background: var(--bg); font-family: "Roboto Mono", monospace; }
+    .glow { text-shadow: 0 0 10px rgba(0,240,255,.6); }
+    .ring-neon { box-shadow: 0 0 0 1px rgba(0,240,255,.35), 0 0 18px rgba(0,240,255,.25) inset; }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+
+  <!-- Optional Firebase config (leave null for offline-only) -->
+  <script>
+    // Fill this object to enable Firestore sync; otherwise leave null.
+    // Example:
+    // window.firebaseConfig = {
+    //   apiKey: "…",
+    //   authDomain: "…",
+    //   projectId: "…",
+    //   storageBucket: "…",
+    //   messagingSenderId: "…",
+    //   appId: "…"
+    // };
+    window.firebaseConfig = null; // works 100% offline when null
+  </script>
+
+  <!-- React 18 UMD + Babel (for single-file JSX) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Firebase modular SDKs (safe to import even if not used) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    window.__firebaseSDK = { initializeApp, getFirestore, doc, getDoc, setDoc };
+  </script>
 </head>
-<body class="bg-gray-900">
-    <div id="root"></div>
+<body>
+  <div id="root"></div>
 
-    <script type="text/babel">
-        // Import Lucide Icons (Must be loaded locally since we are in a single HTML file)
-        const { Users, Target, Zap, Clock, TrendingUp, Download, Settings, X } = {
-            Users: ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
-            Target: ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
-            Zap: ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
-            Clock: ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-            TrendingUp: ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="18 7 22 7 22 11"/></svg>,
-            Download: ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
-            Settings: ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.2a2 2 0 0 1-1.4 1.4L6 7.5a2 2 0 0 0-1 1.76l.16 2.05a2 2 0 0 1-1.4 1.4L2.5 14a2 2 0 0 0 0 4l1.24.16a2 2 0 0 1 1.4 1.4L7.5 20a2 2 0 0 0 1.76 1l2.05.16a2 2 0 0 1 1.4 1.4V22a2 2 0 0 0 4 0v-.2a2 2 0 0 1-1.4-1.4l1.24-.16a2 2 0 0 0 1.76-1l.16-2.05a2 2 0 0 1 1.4-1.4L22 14a2 2 0 0 0 0-4l-1.24-.16a2 2 0 0 1-1.4-1.4L20 7.5a2 2 0 0 0-1.76-1l-2.05-.16a2 2 0 0 1-1.4-1.4V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
-            X: ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-        };
+  <script type="text/babel">
+    // ---------- Utility ----------
+    const cls = (...xs) => xs.filter(Boolean).join(" ");
+    const todayISO = () => new Date().toISOString().slice(0,10);
+    const uid = () => Math.random().toString(36).slice(2,10);
 
+    // ---------- State shape ----------
+    // state = {
+    //   mode: "offline" | "online",
+    //   userId: string,
+    //   profile: { name, email, xp, level },
+    //   habits: [{id, name, logs:[isoDate,...], streak}],
+    //   rewards: [{id, name, cost}],
+    // }
+    const STORAGE_KEY = "hunter_v2_state";
 
-        // --- Global Setup (MANDATORY FIREBASE VARIABLES) ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        
-        let app;
-        let db;
+    // ---------- Leveling ----------
+    const gainXPForTick = (streak) => (streak >= 3 ? 15 : 10);
+    const recomputeLevel = (xp) => 1 + Math.floor(xp / 100);
 
-        if (firebaseConfig) {
-            app = window.initializeApp(firebaseConfig);
-            db = window.getFirestore(app);
+    // ---------- Providers ----------
+    const LocalProvider = {
+      load: async () => {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          const bootstrap = {
+            mode: "offline",
+            userId: "guest",
+            profile: { name: "Hunter", email: "", xp: 0, level: 1 },
+            habits: [
+              { id: uid(), name: "Deep Work (60m)", logs: [], streak: 0 },
+              { id: uid(), name: "Workout", logs: [], streak: 0 },
+              { id: uid(), name: "Reading (20p)", logs: [], streak: 0 },
+            ],
+            rewards: [
+              { id: uid(), name: "Music Break", cost: 20 },
+              { id: uid(), name: "Episode Reward", cost: 50 },
+            ]
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(bootstrap));
+          return bootstrap;
         }
+        return JSON.parse(raw);
+      },
+      save: async (state) => {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+    };
 
-        // --- CONSTANTS AND THEME ---
-        const NEON_BLUE = 'text-[#00F0FF]'; // Main accent color
-        const NEON_GREEN = 'text-[#00FF00]'; // Secondary action color
-        const BG_DARK = 'bg-gray-900';
-        const BORDER_NEON = 'border-[#00F0FF]';
-        const STORAGE_KEY = 'hunterSystemUserId'; // Local Storage key
+    const FirebaseProvider = {
+      // store the whole state blob in one document for simplicity + speed
+      keyFor: (userId) => ["tracker_state", userId],
+      load: async (userId) => {
+        const { initializeApp, getFirestore, doc, getDoc } = window.__firebaseSDK;
+        const app = initializeApp(window.firebaseConfig);
+        const db  = getFirestore(app);
+        const [col, id] = FirebaseProvider.keyFor(userId);
+        const ref = doc(db, col, id);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) {
+          return null; // first time online -> let caller bootstrap
+        }
+        return snap.data();
+      },
+      save: async (state) => {
+        const { initializeApp, getFirestore, doc, setDoc } = window.__firebaseSDK;
+        const app = initializeApp(window.firebaseConfig);
+        const db  = getFirestore(app);
+        const [col, id] = FirebaseProvider.keyFor(state.userId);
+        await setDoc(doc(db, col, id), state, { merge: true });
+      }
+    };
 
-        // LEVEL TITLES for RPG Vibe
-        const getRankTitle = (level) => {
-            if (level >= 11) return 'Elite Specialist';
-            if (level >= 6) return 'Rookie Analyst';
-            if (level >= 1) return 'Novice Hunter';
-            return 'Unregistered';
-        };
+    async function loadState() {
+      // Always start offline instantly
+      let state = await LocalProvider.load();
+      // If Firebase config present, try to hydrate/merge without blocking UI
+      if (window.firebaseConfig && window.__firebaseSDK) {
+        try {
+          const cloud = await FirebaseProvider.load(state.userId);
+          if (cloud && cloud.profile && cloud.habits) {
+            // prefer most recent XP/level; merge habits by id
+            const byIdLocal  = Object.fromEntries(state.habits.map(h => [h.id, h]));
+            const byIdRemote = Object.fromEntries(cloud.habits.map(h => [h.id, h]));
+            const allIds = new Set([...Object.keys(byIdLocal), ...Object.keys(byIdRemote)]);
+            const mergedHabits = [...allIds].map(id => byIdRemote[id] ?? byIdLocal[id]).filter(Boolean);
 
-        // Simple XP calculation: 10 XP per habit. Streak bonus after 3 days.
-        const calculateXPGain = (streak) => {
-            if (streak >= 3) return 15; // Streak bonus
-            return 10;
-        };
+            state = {
+              ...state,
+              mode: "online",
+              profile: { ...state.profile, ...cloud.profile },
+              habits: mergedHabits,
+              rewards: cloud.rewards?.length ? cloud.rewards : state.rewards
+            };
+            await LocalProvider.save(state);
+          } else {
+            state.mode = "online"; // first-time cloud, keep offline bootstrap and mark online
+            await FirebaseProvider.save(state);
+          }
+        } catch (e) {
+          // stay offline quietly; never block
+          state.mode = "offline";
+        }
+      } else {
+        state.mode = "offline";
+      }
+      return state;
+    }
 
-        // --- HELPER FUNCTIONS ---
+    // ---------- App ----------
+    function App() {
+      const [state, setState] = React.useState(null);        // null => loading
+      const [tab, setTab] = React.useState("STATUS");
+      const [error, setError] = React.useState("");
 
-        /** Determines the appropriate RPG greeting based on the current time of day. */
-        const getDynamicGreeting = (userName, level) => {
-            const hour = new Date().getHours();
-            let timePhrase;
+      React.useEffect(() => {
+        let cancelled = false;
+        // Fail-safe start in <1s regardless of network
+        const failSafe = setTimeout(() => {
+          if (!cancelled && !state) setError("Started in Offline Mode (instant load).");
+        }, 1000);
 
-            if (hour >= 5 && hour < 12) {
-                timePhrase = "Good Morning";
-            } else if (hour >= 12 && hour < 18) {
-                timePhrase = "Good Afternoon";
-            } else {
-                timePhrase = "Good Evening";
-            }
+        loadState().then(s => { if (!cancelled) setState(s); });
+        return () => { cancelled = true; clearTimeout(failSafe); };
+      }, []);
 
-            // Example based on the prompt's structure
-            if (timePhrase === "Good Morning") {
-                return `${timePhrase}, Hunter ${userName}! Time to grind.`;
-            } else if (timePhrase === "Good Afternoon") {
-                return `${timePhrase}, Hunter ${userName}! Your current System Level is ${level}.`;
-            } else {
-                return `${timePhrase}, Hunter ${userName}! Daily Quests await.`;
-            }
-        };
-
-        /** Calculates the number of consecutive days a habit has been completed. */
-        const calculateStreak = (logs) => {
-            if (!logs || logs.length === 0) return 0;
-            
-            // Sort logs by date descending
-            const sortedLogs = logs.sort((a, b) => new Date(b.date) - new Date(a.date));
-            
-            let streak = 0;
-            let currentDate = new Date();
-            currentDate.setHours(0, 0, 0, 0);
-
-            for (let i = 0; i < sortedLogs.length; i++) {
-                const logDate = new Date(sortedLogs[i].date);
-                logDate.setHours(0, 0, 0, 0);
-                
-                const nextDay = new Date(currentDate);
-                nextDay.setDate(currentDate.getDate() - 1);
-
-                // Check if the log is from the previous day exactly
-                if (logDate.getTime() === currentDate.getTime()) {
-                    streak++;
-                    currentDate = nextDay; // Move target date back
-                } else if (logDate.getTime() < currentDate.getTime()) {
-                    // If not today and not yesterday, break
-                    break;
-                }
-            }
-            return streak;
-        };
-
-        // --- FIREBASE PATHS (FINAL FIX: Using Query Filters on a Single Public Collection) ---
-        
-        // Generic collection path for all tracker data (guaranteed to be accessible)
-        const TRACKER_COLLECTION = `/artifacts/${appId}/public/data/tracker_data`;
-        const getTrackerCollectionRef = () => window.collection(db, TRACKER_COLLECTION);
-
-        // Queries that filter by the unique userId (email hash) and docType
-        const getProfileQuery = (userId) => window.query(
-            getTrackerCollectionRef(),
-            window.where('userId', '==', userId),
-            window.where('docType', '==', 'profile')
+      if (!state) {
+        return (
+          <div className="min-h-screen flex items-center justify-center text-slate-200">
+            <div className="text-center">
+              <div className="mx-auto mb-6 h-10 w-10 rounded-full border-4 border-cyan-400/30 border-t-cyan-400 spin"></div>
+              <div className="text-cyan-300 glow tracking-widest">SYSTEM INITIALIZING…</div>
+              <div className="text-sm text-slate-400 mt-2">{error || "Preparing UI"}</div>
+            </div>
+          </div>
         );
+      }
 
-        const getHabitsQuery = (userId) => window.query(
-            getTrackerCollectionRef(),
-            window.where('userId', '==', userId),
-            window.where('docType', '==', 'habit')
-        );
+      const save = async (next) => {
+        setState(next);
+        await LocalProvider.save(next);
+        if (next.mode === "online" && window.firebaseConfig) {
+          try { await FirebaseProvider.save(next); } catch { /* ignore */ }
+        }
+      };
 
-        const getRewardsQuery = (userId) => window.query(
-            getTrackerCollectionRef(),
-            window.where('userId', '==', userId),
-            window.where('docType', '==', 'reward')
-        );
-        
-        // NOTE: Logs still use subcollections as they are frequently written. We'll use the docID obtained from the habit query.
-        const getLogsCollection = (habitId) => window.collection(db, `${TRACKER_COLLECTION}/${habitId}/logs`);
+      const toggleToday = (habitId) => {
+        const t = todayISO();
+        const next = structuredClone(state);
+        const h = next.habits.find(x => x.id === habitId);
+        if (!h) return;
+        const had = h.logs.includes(t);
+        if (had) {
+          h.logs = h.logs.filter(x => x !== t);
+          // rolling back XP if removing today's tick
+          const newXP = Math.max(0, next.profile.xp - gainXPForTick(h.streak > 0 ? h.streak : 0));
+          next.profile.xp = newXP;
+          next.profile.level = recomputeLevel(newXP);
+        } else {
+          h.logs.push(t);
+          // recompute streak
+          const days = new Set(h.logs);
+          let streak = 0;
+          for (let i = 0; ; i++) {
+            const d = new Date(); d.setDate(d.getDate() - i);
+            const iso = d.toISOString().slice(0,10);
+            if (days.has(iso)) streak++; else break;
+          }
+          h.streak = streak;
+          next.profile.xp += gainXPForTick(streak);
+          next.profile.level = recomputeLevel(next.profile.xp);
+        }
+        save(next);
+      };
 
-        // --- MAIN APP COMPONENT ---
-        const App = () => {
-            // CRITICAL FIX: Check if the userId stored in localStorage is an old, invalid Firebase ID.
-            // If it starts with 'firebase_' or is too short, we delete it to force the login prompt.
-            const storedId = localStorage.getItem(STORAGE_KEY);
-            if (storedId && (storedId.includes('firebase_') || storedId.length < 5)) {
-                localStorage.removeItem(STORAGE_KEY);
-            }
+      const addHabit = (name) => {
+        if (!name || !name.trim()) return;
+        const next = structuredClone(state);
+        next.habits.push({ id: uid(), name: name.trim(), logs: [], streak: 0 });
+        save(next);
+      };
 
-            const [userId, setUserId] = React.useState(localStorage.getItem(STORAGE_KEY) || null); // Load ID instantly
-            const [isSystemReady, setIsSystemReady] = React.useState(false); 
-            const [activeTab, setActiveTab] = React.useState('STATUS WINDOW');
-            const [habits, setHabits] = React.useState(null); 
-            const [rewards, setRewards] = React.useState(null); 
-            const [xp, setXp] = React.useState(0);
-            const [level, setLevel] = React.useState(1);
-            const [displayName, setDisplayName] = React.useState('Hunter');
-            const [modal, setModal] = React.useState(null); 
-            const [showSettingsPrompt, setShowSettingsPrompt] = React.useState(false);
-            const [completionCache, setCompletionCache] = React.useState({}); 
-            const [profileDocId, setProfileDocId] = React.useState(null); // Store profile doc ID for updates
-            const todayISO = new Date().toISOString().split('T')[0];
-            const isLoggedOut = userId === null; 
+      const spend = (reward) => {
+        const next = structuredClone(state);
+        if (next.profile.xp >= reward.cost) {
+          next.profile.xp -= reward.cost;
+          next.profile.level = recomputeLevel(next.profile.xp);
+          save(next);
+        }
+      };
 
+      const renameProfile = (name, email) => {
+        const next = structuredClone(state);
+        if (name != null) next.profile.name = name;
+        if (email != null) next.profile.email = email;
+        save(next);
+      };
 
-            // --- DATA SUBSCRIPTION SETUP (Optimized for speed and security path) ---
-            React.useEffect(() => {
-                if (!db || !userId) {
-                    setIsSystemReady(false); 
-                    return; 
-                }
-                
-                // Set a 10-second timeout to prevent indefinite hang
-                const timeoutId = setTimeout(() => {
-                    if (!isSystemReady) {
-                        console.error("Data load timed out. Rendering with default/empty data.");
-                        setHabits([]);
-                        setRewards([]);
-                        setIsSystemReady(true);
-                        setModal({ type: 'message', title: 'SLOW CONNECTION', content: 'Connection slow. Rendering default dashboard. Data may not be current.' });
-                    }
-                }, 10000); // 10 seconds
+      return (
+        <div className="min-h-screen text-slate-200">
+          {/* Top bar */}
+          <div className="max-w-5xl mx-auto px-4 py-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <div className="uppercase tracking-widest text-cyan-300 glow">HUNTER SYSTEM V2.0</div>
+                <div className="text-sm text-slate-400">Mode: {state.mode.toUpperCase()} • User: {state.userId}</div>
+              </div>
+              <div className="flex gap-2">
+                {["STATUS","DAILY QUESTS","REWARDS","SETTINGS"].map(t => (
+                  <button key={t}
+                          onClick={()=>setTab(t)}
+                          className={cls("px-3 py-2 rounded ring-neon",
+                                         tab===t ? "bg-cyan-500/10 text-cyan-300" : "bg-slate-800/60 text-slate-300")} >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                const loadProfileAndData = async (uid) => {
-                    let profileData = null;
-                    let pDocId = null;
+            {/* Panels */}
+            {tab==="STATUS" && (
+              <div className="mt-6 grid md:grid-cols-2 gap-6">
+                <div className="bg-slate-900/70 rounded-lg p-5 ring-neon">
+                  <div className="text-slate-400 text-xs mb-1">Greeting</div>
+                  <div className="text-2xl text-cyan-300 glow">
+                    {(()=> {
+                      const h = new Date().getHours();
+                      const t = h<12? "Good Morning" : h<18? "Good Afternoon" : "Good Evening";
+                      return `${t}, Hunter ${state.profile.name}! System Level ${state.profile.level}`;
+                    })()}
+                  </div>
+                </div>
+                <div className="bg-slate-900/70 rounded-lg p-5 ring-neon">
+                  <div className="text-slate-400 text-xs mb-1">Progress</div>
+                  <div className="text-lg">XP: <span className="text-cyan-300">{state.profile.xp}</span></div>
+                  <div className="text-lg">Level: <span className="text-cyan-300">{state.profile.level}</span></div>
+                  <div className="text-slate-400 text-sm mt-2">+10 XP per quest, +15 with 3+ day streak.</div>
+                </div>
+                <div className="bg-slate-900/70 rounded-lg p-5 ring-neon md:col-span-2">
+                  <div className="text-slate-400 text-xs mb-2">Today</div>
+                  <div className="flex flex-wrap gap-2">
+                    {state.habits.map(h => (
+                      <button key={h.id}
+                              onClick={()=>toggleToday(h.id)}
+                              className={cls("px-3 py-2 rounded border",
+                                             h.logs.includes(todayISO())
+                                               ? "bg-emerald-500/20 border-emerald-400 text-emerald-300"
+                                               : "bg-slate-800/60 border-slate-600 text-slate-300")}>
+                        {h.name} • Streak {h.streak}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
-                    try {
-                        // 1. FAST PROFILE LOAD (Use getDocs on Query for instant, filtered data)
-                        const profileQueryRef = getProfileQuery(uid);
-                        const profileSnapshot = await window.getDocs(profileQueryRef);
-                        
-                        if (!profileSnapshot.empty) {
-                            pDocId = profileSnapshot.docs[0].id;
-                            profileData = profileSnapshot.docs[0].data();
-                        } else {
-                            // Initialize profile (Add a new document to the generic collection)
-                            const defaultName = uid.split('@')[0].split('.')[0] || 'Hunter'; 
-                            profileData = { xp: 0, level: 1, displayName: defaultName, userId: uid, docType: 'profile' };
-                            const newDocRef = await window.addDoc(getTrackerCollectionRef(), profileData);
-                            pDocId = newDocRef.id;
-                        }
-                        
-                        setProfileDocId(pDocId);
-                        setXp(profileData.xp || 0);
-                        setLevel(profileData.level || 1);
-                        setDisplayName(profileData.displayName || 'Hunter');
-                        if (!profileData.displayName || profileData.displayName === 'Hunter') {
-                            setShowSettingsPrompt(true);
-                        }
-                        
-                        // --- 2. START HABITS & REWARDS STREAMING (onSnapshot using Queries) ---
-                        const unsubscribes = [];
-                        const habitsQueryRef = getHabitsQuery(uid);
-                        const rewardsQueryRef = getRewardsQuery(uid);
-
-                        // 2a. Habits Stream
-                        const unsubscribeHabits = window.onSnapshot(habitsQueryRef, (snapshot) => {
-                            const fetchedHabits = [];
-                            const newCache = {};
-                            snapshot.forEach(doc => {
-                                const habitData = doc.data();
-                                // IMPORTANT: Store the Firestore Document ID along with the data
-                                fetchedHabits.push({ id: doc.id, ...habitData }); 
-                                newCache[doc.id] = (habitData.lastClaimDate === todayISO);
-                            });
-                            setHabits(fetchedHabits);
-                        }, (error) => {
-                             console.error("Error streaming habits:", error);
-                        });
-                        unsubscribes.push(unsubscribeHabits);
-
-                        // 2b. Rewards Stream
-                        const unsubscribeRewards = window.onSnapshot(rewardsQueryRef, (snapshot) => {
-                            const fetchedRewards = [];
-                            snapshot.forEach(doc => fetchedRewards.push({ id: doc.id, ...doc.data() }));
-                            setRewards(fetchedRewards);
-                        }, (error) => {
-                             console.error("Error streaming rewards:", error);
-                        });
-                        unsubscribes.push(unsubscribeRewards);
-                        
-                        clearTimeout(timeoutId); // Clear the timeout if successful
-                        setIsSystemReady(true); // MARK READY NOW
-
-                        return unsubscribes;
-
-                    } catch (error) {
-                         console.error("CRITICAL ERROR during fast profile fetch (Permissions should be fixed!):", error);
-                         clearTimeout(timeoutId); 
-                         setIsSystemReady(true); 
-                         setModal({ type: 'message', title: 'CONNECTION ERROR', content: 'Database access failed. Please try refreshing or clearing browser cache.' });
-                         return [];
-                    }
-                };
-
-                let currentUnsubscribes = [];
-                // Load data instantly when userId is present
-                loadProfileAndData(userId).then(unsubs => { currentUnsubscribes = unsubs; });
-                
-                return () => {
-                    clearTimeout(timeoutId);
-                    currentUnsubscribes.forEach(unsub => unsub());
-                };
-            }, [userId]); 
-
-            // --- LOCAL AUTH HANDLER ---
-            const handleLogin = (email) => {
-                // Ensure email is a valid ID for Firestore path. 
-                const uniqueId = email.toLowerCase().replace(/[^a-z0-9]/g, ''); 
-                localStorage.setItem(STORAGE_KEY, uniqueId);
-                setUserId(uniqueId);
-                setIsSystemReady(false); // Force state reset to trigger data reload
-                setModal(null);
-            };
-
-            // --- PROFILE UPDATE HANDLER ---
-            const updateProfileDisplayName = async (newDisplayName) => {
-                if (!userId || !newDisplayName || !profileDocId) return;
-                
-                // Update specific document in the generic collection
-                const profileDocRef = window.doc(getTrackerCollectionRef(), profileDocId);
-                try {
-                    await window.updateDoc(profileDocRef, { displayName: newDisplayName });
-                    setDisplayName(newDisplayName);
-                    setShowSettingsPrompt(false);
-                    setModal(null);
-                } catch (e) {
-                     setModal({ type: 'message', title: 'Error', content: 'Could not save display name. Ensure your connection is stable.' });
-                }
-            };
-
-            // --- ACTION HANDLERS ---
-            const check7DayStreakAndReward = async (habit, logs) => {
-                const streak = calculateStreak(logs);
-                const rewardRef = getTrackerCollectionRef(); // Target the generic collection
-                
-                if (streak >= 7 && habit.rewardDescription) {
-                    // Check if reward for this streak has already been granted today
-                    const q = window.query(
-                        rewardRef, 
-                        window.where('userId', '==', userId), 
-                        window.where('habitId', '==', habit.id), 
-                        window.where('docType', '==', 'reward'),
-                        window.where('status', '==', 'UNCLAIMED')
-                    );
-                    const existingRewards = await window.getDocs(q);
-
-                    if (existingRewards.empty) {
-                        await window.addDoc(rewardRef, {
-                            name: habit.rewardDescription,
-                            status: 'UNCLAIMED',
-                            dateUnlocked: new Date().toISOString(),
-                            habitId: habit.id,
-                            userId: userId, // MANDATORY: Include userId for filtering
-                            docType: 'reward' // MANDATORY: Include docType
-                        });
-                        setModal({ type: 'message', title: 'SYSTEM ALERT', content: `NEW REWARD ITEM UNLOCKED! ${habit.rewardDescription}` });
-                        return true;
-                    }
-                }
-                return false;
-            };
-
-            const handleClaimExp = async (habit) => {
-                if (!userId || !habit.id) {
-                    setModal({ type: 'ERROR', title: 'SYSTEM ERROR', content: 'Please log in with your email first or the habit data is corrupted.' });
-                    return;
-                }
-
-                const today = new Date().toISOString().split('T')[0];
-                const logRef = getLogsCollection(habit.id); // Logs still use habit ID subcollection
-                const habitDocRef = window.doc(getTrackerCollectionRef(), habit.id); // Reference to the habit document itself
-
-                const todayLogsQuery = window.query(logRef, window.where('date', '==', today));
-                const todayLogs = await window.getDocs(todayLogsQuery);
-
-                if (!todayLogs.empty) {
-                    setModal({ type: 'message', title: 'WARNING', content: 'EXP ALREADY CLAIMED for this quest today!' });
-                    return;
-                }
-
-                // 1. Write Log
-                await window.addDoc(logRef, { date: today, claimedAt: new Date().toISOString(), userId: userId });
-                
-                // 2. Update Habit's last claim date (Needed for streak check)
-                await window.updateDoc(habitDocRef, { lastClaimDate: today });
-                
-                // 3. Recalculate streak and check for reward
-                const allLogsSnapshot = await window.getDocs(window.collection(db, `${TRACKER_COLLECTION}/${habit.id}/logs`));
-                const allLogs = allLogsSnapshot.docs.map(d => d.data());
-                const streak = calculateStreak(allLogs);
-                const expGained = calculateXPGain(streak);
-                
-                await check7DayStreakAndReward(habit, allLogs);
-
-                // 4. Update XP/Level in Profile document
-                const newXp = xp + expGained;
-                const newLevel = Math.floor(newXp / 100) + 1;
-                const profileDocRef = window.doc(getTrackerCollectionRef(), profileDocId); // Use stored profile doc ID
-                
-                await window.updateDoc(profileDocRef, { xp: newXp, level: newLevel });
-
-                setModal({ type: 'message', title: 'EXP GAINED', content: `+${expGained} XP! Current Streak: ${streak + 1} days.` });
-            };
-            
-            const handleCreateHabit = async (habitData) => {
-                if (!userId) return;
-                const habitsRef = getTrackerCollectionRef(); // Target the generic collection
-                try {
-                    await window.addDoc(habitsRef, {
-                        name: habitData.name,
-                        rewardDescription: habitData.rewardDescription,
-                        createdAt: new Date().toISOString(),
-                        status: 'ACTIVE',
-                        lastClaimDate: null, 
-                        userId: userId, // MANDATORY: Include userId for filtering
-                        docType: 'habit' // MANDATORY: Include docType
-                    });
-                    setModal(null);
-                } catch (error) {
-                    console.error("Error creating habit:", error);
-                }
-            };
-
-            const handleClaimReward = async (rewardId) => {
-                if (!userId) return;
-                const rewardRef = window.doc(getTrackerCollectionRef(), rewardId); // Reference to the reward document itself
-                await window.updateDoc(rewardRef, { status: 'CLAIMED', dateClaimed: new Date().toISOString() });
-                setModal({ type: 'message', title: 'REWARD CLAIMED', content: 'Biryani time! Enjoy your earned reward.' });
-            };
-            
-            // --- MEMORIZED/DERIVED STATE (Remains same) ---
-
-            const currentExp = xp % 100;
-            const expToNextLevel = 100;
-            const progressPercent = (currentExp / expToNextLevel) * 100;
-
-            // --- SUB-COMPONENTS (Remains same) ---
-            
-            const LoginPrompt = () => {
-                const [email, setEmail] = React.useState('');
-                const [error, setError] = React.useState('');
-
-                const validateEmail = (e) => {
-                    e.preventDefault();
-                    if (!email || !email.includes('@')) {
-                        setError('SYSTEM ERROR: Invalid email format.');
-                        return;
-                    }
-                    handleLogin(email);
-                };
-
-                return (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-4">
-                        <div className={`${BG_DARK} border-2 ${BORDER_NEON} p-8 rounded-lg shadow-2xl w-full max-w-md`}>
-                            <h3 className={`text-2xl font-extrabold ${NEON_BLUE} mb-2`}>HUNTER REGISTRATION</h3>
-                            <p className="text-gray-400 mb-6">Enter your email ID. This acts as your secure Hunter Profile ID. Your data will be instantly loaded or created.</p>
-                            
-                            <form onSubmit={validateEmail}>
-                                <input
-                                    type="email"
-                                    placeholder="your.email@example.com"
-                                    value={email}
-                                    onChange={(e) => { setEmail(e.target.value); setError(''); }}
-                                    className={`w-full p-3 mt-2 rounded bg-gray-800 ${BORDER_NEON} border text-white focus:outline-none focus:ring-1 focus:ring-[#00F0FF]`}
-                                />
-                                {error && <p className="text-red-500 mt-2 text-sm">{error}</p>}
-                                <button
-                                    type="submit"
-                                    className={`mt-6 w-full py-3 rounded font-bold text-white transition duration-200 ${NEON_GREEN} border border-[#00FF00] hover:bg-[#00FF00] hover:text-gray-900`}
-                                >
-                                    ACCESS SYSTEM
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                );
-            };
-
-            const SettingsModal = ({ onSave }) => {
-                const [name, setName] = React.useState(displayName);
-
-                return (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
-                        <div className={`${BG_DARK} border-2 ${BORDER_NEON} p-6 rounded-lg shadow-xl w-full max-w-sm`}>
-                            <h3 className={`text-xl font-bold ${NEON_BLUE} flex justify-between items-center`}>
-                                SYSTEM SETTINGS
-                                <button onClick={() => { setShowSettingsPrompt(false); setModal(null); }} className="text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>
-                            </h3>
-                            <p className="mt-4 text-gray-300">Set your **Hunter Display Name** for the greeting.</p>
-                            <input
-                                type="text"
-                                placeholder="e.g., SungJinWoo, Bhradwaj"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                className={`w-full p-3 mt-4 rounded bg-gray-800 ${BORDER_NEON} border text-white focus:outline-none focus:ring-1 focus:ring-[#00F0FF]`}
-                            />
-                            <button
-                                onClick={() => onSave(name)}
-                                className={`mt-6 w-full py-2 rounded font-bold transition duration-200 ${NEON_GREEN} border border-[#00FF00] hover:bg-[#00FF00] hover:text-gray-900`}
-                            >
-                                SAVE & CONTINUE
-                            </button>
-                        </div>
-                    </div>
-                );
-            };
-
-            const MessageModal = ({ onClose }) => (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
-                    <div className={`${BG_DARK} border-2 ${BORDER_NEON} p-6 rounded-lg shadow-xl w-full max-w-sm`}>
-                        <h3 className={`text-xl font-bold ${NEON_BLUE}`}>{modal.title}</h3>
-                        <p className="mt-4 text-gray-300">{modal.content}</p>
-                        <button
-                            onClick={onClose}
-                            className={`mt-6 w-full py-2 rounded font-bold transition duration-200 ${NEON_GREEN} border border-[#00FF00] hover:bg-[#00FF00] hover:text-gray-900`}
-                        >
-                            ACKNOWLEDGE
+            {tab==="DAILY QUESTS" && (
+              <div className="mt-6 grid gap-4">
+                <div className="bg-slate-900/70 rounded-lg p-5 ring-neon">
+                  <div className="text-slate-400 text-xs mb-2">Add Quest</div>
+                  <AddForm onAdd={addHabit}/>
+                </div>
+                <div className="bg-slate-900/70 rounded-lg p-5 ring-neon">
+                  <div className="text-slate-400 text-xs mb-3">Quests</div>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {state.habits.map(h => (
+                      <div key={h.id} className="p-4 rounded bg-slate-800/60 border border-slate-700">
+                        <div className="text-cyan-300">{h.name}</div>
+                        <div className="text-sm text-slate-400 mt-1">Streak: {h.streak}</div>
+                        <button onClick={()=>toggleToday(h.id)} className="mt-3 px-3 py-1.5 rounded bg-emerald-600 text-white">
+                          Mark Today
                         </button>
-                    </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-            );
-            
-            const CreateHabitModal = ({ onClose }) => {
-                const [name, setName] = React.useState('');
-                const [reward, setReward] = React.useState('');
+              </div>
+            )}
 
-                const handleSubmit = () => {
-                    if (name && reward) {
-                        handleCreateHabit({ name, rewardDescription: reward });
-                    }
-                };
-                
-                return (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
-                        <div className={`${BG_DARK} border-2 ${BORDER_NEON} p-6 rounded-lg shadow-xl w-full max-w-lg`}>
-                            <h3 className={`text-xl font-bold ${NEON_BLUE} mb-4`}>CREATE NEW QUEST</h3>
-                            <div className="space-y-4">
-                                <input
-                                    type="text"
-                                    placeholder="Quest Name (e.g., Meditate 10 Mins)"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    className={`w-full p-3 rounded bg-gray-800 ${BORDER_NEON} border text-white focus:outline-none focus:ring-1 focus:ring-[#00F0FF]`}
-                                />
-                                <input
-                                    type="text"
-                                    placeholder="7-Day Reward (e.g., Biryani Pass Unlocked!)"
-                                    value={reward}
-                                    onChange={(e) => setReward(e.target.value)}
-                                    className={`w-full p-3 rounded bg-gray-800 ${BORDER_NEON} border text-white focus:outline-none focus:ring-1 focus:ring-[#00F0FF]`}
-                                />
-                            </div>
-                            <div className="flex justify-end space-x-4 mt-6">
-                                <button
-                                    onClick={onClose}
-                                    className="py-2 px-4 rounded font-bold text-gray-400 border border-gray-700 hover:border-gray-500 transition duration-200"
-                                >
-                                    CANCEL
-                                </button>
-                                <button
-                                    onClick={handleSubmit}
-                                    className={`py-2 px-4 rounded font-bold transition duration-200 ${NEON_GREEN} border border-[#00FF00] hover:bg-[#00FF00] hover:text-gray-900`}
-                                >
-                                    ACTIVATE QUEST
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
-            
-            const StatusWindow = () => {
-                // If data hasn't loaded (habits is null), show the loading component
-                if (habits === null) {
-                    return (
-                        <div className="flex flex-col items-center justify-center p-10 space-y-4">
-                            <div className="loading-spinner"></div>
-                            <p className="text-gray-500">Retrieving Hunter Data...</p>
-                        </div>
-                    );
-                }
-                
-                const greeting = getDynamicGreeting(displayName, level);
-
-                const XPBar = ({ value, max, label, color }) => (
-                    <div className="mb-4">
-                        <div className="flex justify-between text-xs font-mono text-gray-400">
-                            <span>{label}</span>
-                            <span className={color}>{value}/{max}</span>
-                        </div>
-                        <div className="w-full bg-gray-800 h-2 rounded-full mt-1">
-                            <div
-                                className={`h-full rounded-full transition-all duration-500 ${color === NEON_BLUE ? 'bg-[#00F0FF] shadow-[0_0_8px_#00F0FF]' : 'bg-[#00FF00] shadow-[0_0_8px_#00FF00]'}`}
-                                style={{ width: `${(value / max) * 100}%` }}
-                            ></div>
-                        </div>
-                    </div>
-                );
-
-                const StatCard = ({ title, value, icon: Icon, colorClass }) => {
-                    // Mana/Focus and Completion calculation for Stats
-                    const dailyManaStart = 100;
-                    const completedTodayCount = habits.filter(h => completionCache[h.id]).length;
-                    const currentMana = dailyManaStart - (completedTodayCount * 15);
-                    const totalQuests = habits.length;
-                    const completionPercent = totalQuests > 0 ? Math.round((completedTodayCount / totalQuests) * 100) : 0;
-                    
-                    let statValue = value;
-                    if (title === "MANA / FOCUS") statValue = `${Math.max(0, currentMana)}%`;
-                    if (title === "TODAY'S COMPLETION") statValue = `${completionPercent}%`;
-
-                    return (
-                        <div className={`p-4 ${BG_DARK} rounded-lg border border-gray-700 shadow-lg shadow-gray-800/50`}>
-                            <div className="flex items-center space-x-3">
-                                <Icon className={`w-6 h-6 ${colorClass}`} />
-                                <div>
-                                    <p className="text-sm text-gray-400">{title}</p>
-                                    <p className={`text-xl font-bold ${colorClass}`}>{statValue}</p>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                };
-                
-                return (
-                    <div className="p-6 space-y-8">
-                        {/* SYSTEM ALERT / GREETING */}
-                        <div className={`p-4 border-2 ${BORDER_NEON} rounded-lg bg-gray-800 shadow-[0_0_15px_#00F0FF]`}>
-                            <p className={`font-mono text-sm uppercase ${NEON_BLUE} mb-1`}>— SYSTEM ALERT —</p>
-                            <p className={`text-xl font-bold text-white`}>{greeting}</p>
-                        </div>
-
-                        {/* LEVEL AND PROGRESS */}
-                        <div className="space-y-2 p-4 border border-gray-700 rounded-lg">
-                            <div className={`flex items-baseline space-x-2 ${NEON_GREEN}`}>
-                                <span className="text-3xl font-extrabold">LEVEL {level}</span>
-                                <span className="text-lg text-gray-400">({getRankTitle(level)})</span>
-                            </div>
-                            <XPBar value={currentExp} max={expToNextLevel} label={`PROGRESS TO LEVEL ${level + 1}`} color={NEON_BLUE} />
-                            <p className="text-xs text-gray-500 pt-2">EXP: {xp} Total | {expToNextLevel - currentExp} EXP TO LEVEL {level + 1}</p>
-                        </div>
-
-                        {/* HUNTER STATS */}
-                        <h3 className={`text-xl font-bold ${NEON_BLUE}`}>HUNTER STATS</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <StatCard 
-                                title="MANA / FOCUS" 
-                                value="N/A" 
-                                icon={Zap} 
-                                colorClass={NEON_GREEN} 
-                            />
-                            <StatCard 
-                                title="REWARDS PENDING" 
-                                value={rewards ? rewards.filter(r => r.status === 'UNCLAIMED').length : 0} 
-                                icon={TrendingUp} 
-                                colorClass={NEON_BLUE} 
-                            />
-                            <StatCard 
-                                title="TODAY'S COMPLETION" 
-                                value="N/A" 
-                                icon={Target} 
-                                colorClass={NEON_GREEN} 
-                            />
-                        </div>
-                    </div>
-                );
-            };
-
-            const DailyQuests = () => {
-                if (habits === null) {
-                    return (
-                        <div className="flex flex-col items-center justify-center p-10 space-y-4">
-                            <div className="loading-spinner"></div>
-                            <p className="text-gray-500">Retrieving Quest Log...</p>
-                        </div>
-                    );
-                }
-                
-                // Placeholder for CSV Export
-                const handleExportCSV = () => {
-                    setModal({ type: 'message', title: 'EXPORT UNAVAILABLE', content: 'CSV export functionality requires external processing and is not implemented in this version. Data is safely stored in Firestore.' });
-                };
-                
-                const handleClaimWrapper = async (habit) => {
-                    await handleClaimExp(habit);
-                };
-                
-                return (
-                    <div className="p-6 space-y-6">
-                        <div className="flex justify-between items-center">
-                            <h3 className={`text-xl font-bold ${NEON_BLUE}`}>ACTIVE QUESTS</h3>
-                            <div className="flex space-x-2">
-                                <button 
-                                    onClick={handleExportCSV}
-                                    className={`py-2 px-4 rounded font-bold transition duration-200 ${NEON_BLUE} border border-[#00F0FF] hover:bg-[#00F0FF] hover:text-gray-900 flex items-center text-sm`}
-                                >
-                                    <Download className="w-4 h-4 mr-2" />
-                                    EXPORT DATA
-                                </button>
-                                <button
-                                    onClick={() => setModal({ type: 'createHabit', onClose: () => setModal(null) })}
-                                    className={`py-2 px-4 rounded font-bold transition duration-200 ${NEON_GREEN} border border-[#00FF00] hover:bg-[#00FF00] hover:text-gray-900 text-sm`}
-                                >
-                                    CREATE NEW QUEST
-                                </button>
-                            </div>
-                        </div>
-
-                        {habits.length === 0 && (
-                            <p className="text-gray-500 pt-4">No Quests active. Click 'CREATE NEW QUEST' to begin your Hunter journey.</p>
-                        )}
-
-                        <div className="space-y-4">
-                            {habits.map((habit) => {
-                                // Use fast cache lookup
-                                const completed = completionCache[habit.id] || false; 
-                                
-                                return (
-                                    <div key={habit.id} className="p-4 bg-gray-800 rounded-lg border border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                                        <div className="flex-1 min-w-0 pr-4">
-                                            <p className="text-lg font-semibold text-white truncate">{habit.name}</p>
-                                            <p className="text-sm text-gray-400">Reward: {habit.rewardDescription || 'N/A'}</p>
-                                        </div>
-                                        <div className="flex items-center space-x-4 mt-3 sm:mt-0">
-                                            <span className={`text-sm font-mono ${completed ? NEON_GREEN : NEON_BLUE}`}>
-                                                <Clock className="w-4 h-4 inline mr-1" /> STATUS: {completed ? 'COMPLETED' : 'PENDING'}
-                                            </span>
-                                            <button
-                                                onClick={() => handleClaimWrapper(habit)}
-                                                disabled={completed}
-                                                className={`py-2 px-4 rounded font-bold transition duration-200 ${completed ? 'bg-gray-700 text-gray-500' : `${NEON_GREEN} border border-[#00FF00] hover:bg-[#00FF00] hover:text-gray-900`}`}
-                                            >
-                                                {completed ? 'COMPLETED' : 'CLAIM EXP'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                );
-            };
-
-            const RewardsInventory = () => {
-                 if (rewards === null) {
-                    return (
-                        <div className="flex flex-col items-center justify-center p-10 space-y-4">
-                            <div className="loading-spinner"></div>
-                            <p className="text-gray-500">Retrieving Inventory...</p>
-                        </div>
-                    );
-                }
-                
-                return (
-                    <div className="p-6 space-y-6">
-                        <h3 className={`text-xl font-bold ${NEON_BLUE}`}>EARNED REWARDS</h3>
-                       
-                        {rewards.filter(r => r.status === 'UNCLAIMED').length === 0 && (
-                            <p className="text-gray-500 pt-4">Complete 7-day streaks to earn rewards!</p>
-                        )}
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {rewards.filter(r => r.status === 'UNCLAIMED').map(reward => (
-                                <div key={reward.id} className="p-4 bg-gray-800 rounded-lg border border-[#00FF00] shadow-[0_0_10px_#00FF00]">
-                                    <p className={`text-lg font-semibold ${NEON_GREEN}`}>{reward.name}</p>
-                                    <p className="text-sm text-gray-400">Status: UNCLAIMED</p>
-                                    <p className="text-xs text-gray-500">Unlocked: {new Date(reward.dateUnlocked).toLocaleDateString()}</p>
-                                    <button
-                                        onClick={() => handleClaimReward(reward.id)}
-                                        className="mt-3 py-1 px-3 text-xs rounded font-bold text-white bg-red-600 hover:bg-red-700 transition duration-200"
-                                    >
-                                        SPEND/CLAIM REWARD
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                        <h4 className={`text-lg font-bold text-gray-500 mt-8`}>CLAIMED HISTORY</h4>
-                        <div className="space-y-2 text-gray-600">
-                            {rewards.filter(r => r.status === 'CLAIMED').map(reward => (
-                                <p key={reward.id} className="text-sm border-b border-gray-800 pb-1">
-                                    {reward.name} - Claimed on {new Date(reward.dateClaimed).toLocaleDateString()}
-                                </p>
-                            ))}
-                        </div>
-                    </div>
-                );
-            };
-
-            const renderContent = () => {
-                // If not logged in, show the login prompt immediately
-                if (isLoggedOut) {
-                    return <LoginPrompt />;
-                }
-
-                // If logged in but data is not ready, show a subtle overlay on the tabs
-                // REMOVED check for !isSystemReady here to show the CONTINUE button instead
-                if (habits === null) {
-                    return (
-                        <div className="p-10 flex flex-col items-center justify-center">
-                            <div className="loading-spinner mb-4"></div>
-                            <p className={`${NEON_BLUE} text-lg font-mono`}>SYSTEM INITIALIZING...</p>
-                            <p className="text-sm text-gray-500 mt-2">Retrieving user profile and data...</p>
-                            <button
-                                onClick={() => setIsSystemReady(true)} // FORCED BYPASS
-                                className="mt-8 py-2 px-4 rounded font-bold transition duration-200 text-white bg-red-600 border border-red-400 hover:bg-red-700"
-                            >
-                                CONTINUE / FORCED INIT (DATA MAY BE INCOMPLETE)
-                            </button>
-                        </div>
-                    );
-                }
-
-                // Once logged in and system is ready, render the dashboard
-                switch (activeTab) {
-                    case 'STATUS WINDOW': return <StatusWindow />;
-                    case 'DAILY QUESTS': return <DailyQuests />;
-                    case 'REWARDS INVENTORY': return <RewardsInventory />;
-                    default: return <StatusWindow />;
-                }
-            };
-
-            return (
-                <div className={`min-h-screen ${BG_DARK} text-white font-sans antialiased`}>
-                    {/* Header / System Title (Always loads instantly) */}
-                    <header className={`p-4 shadow-lg ${BG_DARK} sticky top-0 z-10 border-b border-gray-700`}>
-                        <div className="max-w-4xl mx-auto flex justify-between items-center">
-                            <h1 className={`text-2xl font-extrabold tracking-widest ${NEON_BLUE}`}>HUNTER SYSTEM V2.0</h1>
-                            <div className="flex items-center space-x-4">
-                                <span className="text-xs text-gray-500">USER: {displayName}</span>
-                                <button 
-                                    onClick={() => setShowSettingsPrompt(true)} 
-                                    className="text-gray-400 hover:text-white transition"
-                                    aria-label="Settings"
-                                >
-                                    <Settings className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-                    </header>
-
-                    {/* Main Content Area */}
-                    <main className="max-w-4xl mx-auto pb-10">
-                        {/* Tabs / Navigation */}
-                        {!isLoggedOut && (
-                            <div className="flex justify-center p-4 space-x-2 border-b border-gray-700 sticky top-16 bg-gray-900 z-10">
-                                {['STATUS WINDOW', 'DAILY QUESTS', 'REWARDS INVENTORY'].map(tab => (
-                                    <button
-                                        key={tab}
-                                        onClick={() => setActiveTab(tab)}
-                                        disabled={!isSystemReady}
-                                        className={`px-4 py-2 text-sm font-bold uppercase rounded-t transition duration-200 ${
-                                            activeTab === tab
-                                                ? `bg-gray-800 ${NEON_BLUE} border-b-2 border-[#00F0FF] shadow-[0_4px_10px_rgba(0,240,255,0.3)]`
-                                                : 'text-gray-400 hover:text-white disabled:opacity-50'
-                                        }`}
-                                    >
-                                        {tab}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Content */}
-                        {renderContent()}
-                    </main>
-
-                    {/* Modal Renderer */}
-                    {(modal && modal.type === 'message') && <MessageModal onClose={() => setModal(null)} />}
-                    {(modal && modal.type === 'createHabit') && <CreateHabitModal onClose={() => setModal(null)} />}
-                    {showSettingsPrompt && <SettingsModal onSave={updateProfileDisplayName} />}
+            {tab==="REWARDS" && (
+              <div className="mt-6 grid gap-4">
+                <div className="bg-slate-900/70 rounded-lg p-5 ring-neon">
+                  <div className="text-slate-400 text-xs mb-3">Available</div>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {state.rewards.map(r => (
+                      <div key={r.id} className="p-4 rounded bg-slate-800/60 border border-slate-700">
+                        <div className="text-cyan-300">{r.name}</div>
+                        <div className="text-sm text-slate-400">Cost: {r.cost} XP</div>
+                        <button onClick={()=>spend(r)} disabled={state.profile.xp < r.cost}
+                                className={cls("mt-3 px-3 py-1.5 rounded text-white",
+                                               state.profile.xp < r.cost ? "bg-slate-600 cursor-not-allowed" : "bg-indigo-600")}>
+                          Redeem
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-            );
-        };
+              </div>
+            )}
 
-        // --- MODERN REACT 18 RENDER ---
-        const root = window.createRoot(document.getElementById('root'));
-        root.render(React.createElement(App));
-    </script>
+            {tab==="SETTINGS" && (
+              <div className="mt-6 grid gap-4">
+                <div className="bg-slate-900/70 rounded-lg p-5 ring-neon">
+                  <div className="text-slate-400 text-xs mb-2">Profile</div>
+                  <SettingsForm profile={state.profile} onSave={renameProfile}/>
+                  <div className="text-sm text-slate-400 mt-4">
+                    Storage: {state.mode === "online" ? "Local + Firestore Sync" : "Local Only"}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function AddForm({ onAdd }) {
+      const [name, setName] = React.useState("");
+      return (
+        <form onSubmit={e=>{e.preventDefault(); onAdd(name); setName("");}}>
+          <div className="flex gap-2">
+            <input value={name} onChange={e=>setName(e.target.value)}
+                   className="flex-1 px-3 py-2 rounded bg-slate-800/60 border border-slate-700 text-slate-200"
+                   placeholder="New quest name"/>
+            <button className="px-3 py-2 rounded bg-cyan-600 text-white">Add</button>
+          </div>
+        </form>
+      );
+    }
+
+    function SettingsForm({ profile, onSave }) {
+      const [name, setName] = React.useState(profile.name || "");
+      const [email, setEmail] = React.useState(profile.email || "");
+      return (
+        <form onSubmit={e=>{e.preventDefault(); onSave(name, email);}}>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <div className="text-xs text-slate-400 mb-1">Display Name</div>
+              <input value={name} onChange={e=>setName(e.target.value)}
+                     className="w-full px-3 py-2 rounded bg-slate-800/60 border border-slate-700 text-slate-200"
+                     placeholder="Hunter"/>
+            </div>
+            <div>
+              <div className="text-xs text-slate-400 mb-1">Email (optional)</div>
+              <input value={email} onChange={e=>setEmail(e.target.value)}
+                     className="w-full px-3 py-2 rounded bg-slate-800/60 border border-slate-700 text-slate-200"
+                     placeholder="name@example.com"/>
+            </div>
+          </div>
+          <button className="mt-4 px-3 py-2 rounded bg-emerald-600 text-white">Save</button>
+        </form>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
 </body>
 </html>
