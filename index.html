@@ -180,6 +180,7 @@
             const [userId, setUserId] = React.useState(null);
             const [isAuthReady, setIsAuthReady] = React.useState(false); 
             const [activeTab, setActiveTab] = React.useState('STATUS WINDOW');
+            // Data states now start as null to show loading indicator within components
             const [habits, setHabits] = React.useState(null); 
             const [rewards, setRewards] = React.useState(null); 
             const [xp, setXp] = React.useState(0);
@@ -193,7 +194,11 @@
 
             // --- FIREBASE AUTH & INIT (Combined Auth and Data Setup) ---
             React.useEffect(() => {
-                if (!firebaseConfig) return console.error("Firebase config not available.");
+                if (!firebaseConfig) {
+                    console.error("Firebase config not available. Skipping auth.");
+                    setIsAuthReady(true); // Render UI even if Firebase isn't available
+                    return;
+                }
                 
                 const signIn = async () => {
                     try {
@@ -284,7 +289,7 @@
                         // User is null (e.g., failed sign-in), set a fallback ID
                         setUserId(crypto.randomUUID());
                     }
-                    // Crucial fix: Mark Auth Ready to allow UI render, regardless of success/failure.
+                    // FINAL FIX: Mark Auth Ready to allow UI render IMMEDIATELY
                     setIsAuthReady(true); 
                 });
 
@@ -573,7 +578,7 @@
                             />
                             <StatCard 
                                 title="REWARDS PENDING" 
-                                value={rewards.filter(r => r.status === 'UNCLAIMED').length} 
+                                value={rewards ? rewards.filter(r => r.status === 'UNCLAIMED').length : 0} 
                                 icon={TrendingUp} 
                                 colorClass={NEON_BLUE} 
                             />
@@ -663,18 +668,24 @@
                 );
             };
 
-            const RewardsInventory = () => (
-                <div className="p-6 space-y-6">
-                    <h3 className={`text-xl font-bold ${NEON_BLUE}`}>EARNED REWARDS</h3>
-                    {rewards === null && (
-                        <div className="flex items-center justify-start text-gray-500 pt-4">
-                           <span className="loading-spinner w-4 h-4 mr-3"></span> Retrieving Inventory...
+            const RewardsInventory = () => {
+                 if (rewards === null) {
+                    return (
+                        <div className="flex flex-col items-center justify-center p-10 space-y-4">
+                            <div className="loading-spinner"></div>
+                            <p className="text-gray-500">Retrieving Inventory...</p>
                         </div>
-                    )}
-                    {rewards !== null && rewards.filter(r => r.status === 'UNCLAIMED').length === 0 && (
-                        <p className="text-gray-500 pt-4">Complete 7-day streaks to earn rewards!</p>
-                    )}
-                    {rewards !== null && (
+                    );
+                }
+                
+                return (
+                    <div className="p-6 space-y-6">
+                        <h3 className={`text-xl font-bold ${NEON_BLUE}`}>EARNED REWARDS</h3>
+                       
+                        {rewards.filter(r => r.status === 'UNCLAIMED').length === 0 && (
+                            <p className="text-gray-500 pt-4">Complete 7-day streaks to earn rewards!</p>
+                        )}
+                        
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {rewards.filter(r => r.status === 'UNCLAIMED').map(reward => (
                                 <div key={reward.id} className="p-4 bg-gray-800 rounded-lg border border-[#00FF00] shadow-[0_0_10px_#00FF00]">
@@ -690,25 +701,21 @@
                                 </div>
                             ))}
                         </div>
-                    )}
-                    <h4 className={`text-lg font-bold text-gray-500 mt-8`}>CLAIMED HISTORY</h4>
-                    <div className="space-y-2 text-gray-600">
-                        {rewards !== null && rewards.filter(r => r.status === 'CLAIMED').map(reward => (
-                            <p key={reward.id} className="text-sm border-b border-gray-800 pb-1">
-                                {reward.name} - Claimed on {new Date(reward.dateClaimed).toLocaleDateString()}
-                            </p>
-                        ))}
+                        <h4 className={`text-lg font-bold text-gray-500 mt-8`}>CLAIMED HISTORY</h4>
+                        <div className="space-y-2 text-gray-600">
+                            {rewards.filter(r => r.status === 'CLAIMED').map(reward => (
+                                <p key={reward.id} className="text-sm border-b border-gray-800 pb-1">
+                                    {reward.name} - Claimed on {new Date(reward.dateClaimed).toLocaleDateString()}
+                                </p>
+                            ))}
+                        </div>
                     </div>
-                </div>
-            );
+                );
+            };
 
             const renderContent = () => {
-                // If authentication is not ready, display the full-page loading overlay
-                if (!isAuthReady) {
-                    return <LoadingOverlay />;
-                }
-
-                // Once authenticated, render the selected content. Content will handle its own loading state.
+                // Since isAuthReady is set to true immediately, we bypass the full-screen loading overlay.
+                // The individual components now handle their own loading (habits === null).
                 switch (activeTab) {
                     case 'STATUS WINDOW': return <StatusWindow />;
                     case 'DAILY QUESTS': return <DailyQuests />;
@@ -716,14 +723,6 @@
                     default: return <StatusWindow />;
                 }
             };
-
-            const LoadingOverlay = () => (
-                <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 text-white">
-                    <div className="loading-spinner mb-4"></div>
-                    <p className={`${NEON_BLUE} text-lg font-mono`}>SYSTEM INITIALIZING...</p>
-                    <p className="text-sm text-gray-500 mt-2">Authenticating Hunter Credentials...</p>
-                </div>
-            );
 
             return (
                 <div className={`min-h-screen ${BG_DARK} text-white font-sans antialiased`}>
