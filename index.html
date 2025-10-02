@@ -1,28 +1,44 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Hunter System V2.0 – RPG Daily Tracker</title>
+  <title>Hunter System V2.0 - RPG Habit Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet"/>
   <style>
-    body { background: #0d1117; font-family: "Roboto Mono", monospace; }
-    .glow { text-shadow: 0 0 10px #00F0FF, 0 0 2px #22d3ee; }
-    .neon-border { border: 2px solid #00F0FF; box-shadow: 0 0 24px #00F0FF60; }
-    .fancy-panel { background: linear-gradient(135deg,#0d1117 0%,#111b37 100%); }
-    .fancy-shadow { box-shadow: 0 6px 32px #00F0FF22 inset;}
-    .status-alert { background: #0d1c20; border: 2px solid #00F0FF; box-shadow: 0 0 24px #00F0FF22; }
-    .level-glow { color: #00F0FF; text-shadow: 0 0 8px #00F0FF,0 0 2px #22d3ee; }
-    .tab-active { background: #0b1726; color: #00F0FF; border-bottom: 3px solid #00F0FF; }
-    .tab { color: #dbeafe; }
-    .quest-box { border: 1.5px solid #21e6c1; background: #111b37; box-shadow: 0 0 16px #21e6c133; }
-    .quest-box.active { border-color: #00F0FF; box-shadow: 0 0 24px #00F0FF22 inset; }
-    .btn-neon { background: #00F0FF; color: #111827; font-weight:600; box-shadow: 0 0 12px #00F0FF60;}
-    .btn-neon:hover { background: #0cf3ee; }
+    :root { --neon: #21e6c1; --neon2: #64fff0; --neon-blue: #51e7ff; --bg: #131d2d; --panel: #1c2331;}
+    body { background: var(--bg); font-family: "Roboto Mono", monospace; }
+    .glass { background: rgba(27,36,54,0.96); backdrop-filter: blur(11px);}
+    .border-neon { border-color: var(--neon2);}
+    .neon-glow {
+      box-shadow: 0 0 0 2px var(--neon2), 0 4px 18px 0 var(--neon-blue);
+    }
+    .tab, .tab-active {
+      padding: 0.8em 1.6em;
+      font-weight: bold;
+      border-radius: 6px 6px 0 0;
+      margin-right: 5px;
+      background: transparent;
+      border: 0;
+      outline: 0;
+    }
+    .tab-active {
+      background: var(--panel);
+      color: var(--neon-blue);
+      box-shadow: 0 2px 0 0 var(--neon-blue) inset;
+      border-bottom: 0 !important;
+    }
+    .tab:not(.tab-active):hover { color: var(--neon-blue);}
+    .btn-action {background: var(--neon2); color: #112030; box-shadow: 0 1px 16px 1px #64fff055;}
+    .btn-action:hover {background: var(--neon-blue);}
+    .text-neon {color: var(--neon2);}
+    .text-mana {color: var(--neon);}
+    .input-box {background: #202a3d !important;}
   </style>
   <script>
-    window.firebaseConfig = null; // offline only, paste your config for sync
+    window.firebaseConfig = null; // paste your config if using Firestore for sync, else leave null
   </script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -31,191 +47,251 @@
 <body>
   <div id="root"></div>
   <script type="text/babel">
-    // Utilities, Level/XP logic
-    const todayISO = () => new Date().toISOString().slice(0,10);
+    // Util
+    const todayISO = () => new Date().toISOString().split('T')[0];
     const uid = () => Math.random().toString(36).slice(2,10);
-    const STORAGE_KEY = "hunter_v2_state";
-    const gainXPForTick = streak => (streak>=3?15:10);
-    const recomputeLevel = xp => 1+Math.floor(xp/100);
-    // Provider (local only)
+    const STORAGE = "hunter_system_v2";
+
+    // Local state
     const LocalProvider = {
       load: async () => {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) {
-          const state = {
-            mode: "offline",
-            userId: "guest",
-            profile: { name: "Hunter", email: "", xp: 0, level: 1 },
-            habits: [],   // ** EMPTY! **
-            rewards: [
-              { id: uid(), name: "Music Break", cost: 20 },
-              { id: uid(), name: "Episode Reward", cost: 50 }
-            ]
-          };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-          return state;
+        const raw = localStorage.getItem(STORAGE);
+        if(!raw) {
+          const init = {profile:{name: "Hunter", xp: 0, level: 1}, habits: [], rewards: []};
+          localStorage.setItem(STORAGE, JSON.stringify(init));
+          return init;
         }
         return JSON.parse(raw);
       },
-      save: async state => localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+      save: async (s) => localStorage.setItem(STORAGE, JSON.stringify(s))
     };
 
-    async function loadState() {
-      let state = await LocalProvider.load();
-      state.mode = "offline";
-      return state;
-    }
+    // XP logic
+    const gainXP = streak => streak >= 3 ? 15 : 10;
+    const recomputeLevel = xp => 1 + Math.floor(xp / 100);
 
-    function App() {
-      const [state,setState] = React.useState(null);
-      const [tab,setTab] = React.useState("STATUS");
-      React.useEffect(()=>{ loadState().then(setState); },[]);
-
-      if(!state) return (
-        <div className="min-h-screen flex items-center justify-center text-slate-100">
-          <div className="text-center">
-            <div className="mx-auto mb-6 h-10 w-10 rounded-full border-4 border-cyan-400/30 border-t-cyan-400 animate-spin"></div>
-            <div className="level-glow text-lg">SYSTEM INITIALIZING…</div>
-            <div className="text-slate-400 mt-2">Preparing UI</div>
+    // ------------- MODALS -------------
+    function SettingsModal({profile,onSave,onClose}) {
+      const [name, setName] = React.useState(profile?.name || "");
+      return (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
+          <div className="glass border-2 border-neon neon-glow p-8 rounded-lg min-w-[300px] shadow-2xl w-full max-w-sm">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-bold text-neon mb-4">SYSTEM SETTINGS</h3>
+              <button onClick={onClose} className="text-gray-400">&times;</button>
+            </div>
+            <div className="mt-2 mb-5">
+              <p className="text-gray-300 mb-2">Set your <b>Hunter Display Name</b> for the greeting.</p>
+              <input value={name} onChange={e=>setName(e.target.value)}
+                type="text" placeholder="e.g., Sung Jin-Woo"
+                className="w-full p-3 rounded input-box border-2 border-neon text-white focus:outline-none focus:border-neon mb-6"/>
+              <button className="btn-action w-full rounded p-2" onClick={()=>onSave(name)}>Save & Continue</button>
+            </div>
           </div>
         </div>
       );
+    }
 
-      const save = async (next) => { setState(next); await LocalProvider.save(next); };
+    function CreateHabitModal({onSave,onClose}) {
+      const [name, setName] = React.useState("");
+      const [reward, setReward] = React.useState("");
+      return (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
+          <div className="glass border-2 border-neon neon-glow p-8 rounded-lg max-w-lg w-full shadow-2xl">
+            <h3 className="text-xl font-bold text-neon mb-4">CREATE NEW QUEST</h3>
+            <div className="mb-4 space-y-2">
+              <input type="text" value={name} onChange={e=>setName(e.target.value)} autoFocus
+                placeholder="Quest Name (e.g., Meditate 10 mins)" className="w-full p-3 rounded input-box border-2 border-neon text-white focus:outline-none"/>
+              <input type="text" value={reward} onChange={e=>setReward(e.target.value)}
+                placeholder="7-Day Reward (e.g., Biryani Pass Unlocked!)" className="w-full p-3 rounded input-box border-2 border-neon text-white focus:outline-none"/>
+            </div>
+            <div className="flex justify-end mt-6 gap-3">
+              <button className="px-5 py-2 rounded text-gray-400 border border-gray-700 transition" onClick={onClose}>Cancel</button>
+              <button className="btn-action px-5 py-2 rounded" onClick={()=>{if(name)onSave({name,rewardDescription:reward})}}>Activate Quest</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
-      const toggleToday = (habitId) => {
+    // ------------- MAIN APP -------------
+    function App() {
+      const [state,setState] = React.useState(null);
+      const [modal,setModal] = React.useState(null);
+
+      React.useEffect(()=>{
+        LocalProvider.load().then(setState);
+      },[]);
+
+      // Settings
+      const saveName = (name) => {
+        const next = {...state, profile:{...state.profile, name}};
+        setState(next);
+        LocalProvider.save(next);
+        setModal(null);
+      };
+
+      // Add habit
+      const addHabit = ({name,rewardDescription}) => {
+        if(!name) return;
+        const next = structuredClone(state);
+        next.habits.push({id: uid(), name, logs:[], streak:0, rewardDescription});
+        setState(next);
+        LocalProvider.save(next);
+        setModal(null);
+      };
+
+      // Claim quest today
+      const toggleHabit = (hid) => {
         const t = todayISO();
         const next = structuredClone(state);
-        const h = next.habits.find(x=>x.id===habitId); if(!h) return;
-        const had = h.logs.includes(t);
-        if(had) {
-          h.logs = h.logs.filter(x=>x!==t);
-          next.profile.xp = Math.max(0,next.profile.xp-gainXPForTick(h.streak));
-          next.profile.level = recomputeLevel(next.profile.xp);
-        } else {
+        const h = next.habits.find(x=>x.id===hid); if(!h) return;
+        const done = h.logs.includes(t);
+        if(done) h.logs = h.logs.filter(x=>x!==t);
+        else {
           h.logs.push(t);
           let streak=0, days=new Set(h.logs);
           for(let i=0;;i++){const d=new Date(); d.setDate(d.getDate()-i);
             const iso=d.toISOString().slice(0,10);if(days.has(iso))streak++;else break;}
           h.streak=streak;
-          next.profile.xp += gainXPForTick(streak);
+          next.profile.xp += gainXP(streak);
           next.profile.level = recomputeLevel(next.profile.xp);
         }
-        save(next);
+        setState(next);
+        LocalProvider.save(next);
       };
 
-      const addHabit = (name) => {
-        if(!name || !name.trim()) return;
-        const next = structuredClone(state);
-        next.habits.push({id:uid(),name:name.trim(),logs:[],streak:0});
-        save(next);
-      };
+      // UI render
+      if(!state) return (
+        <div className="min-h-screen flex items-center justify-center text-slate-100">
+          <div className="text-center">
+            <div className="mx-auto mb-6 h-10 w-10 rounded-full border-4 border-cyan-400/30 border-t-cyan-400 animate-spin"></div>
+            <div className="text-neon text-lg">SYSTEM INITIALIZING…</div>
+          </div>
+        </div>
+      );
 
       return (
-        <div className="min-h-screen text-slate-100 fancy-panel">
-          <div className="max-w-4xl mx-auto pt-8 px-2">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <div className="font-bold text-xl tracking-[.23em] glow">HUNTER SYSTEM V2.0</div>
-                <div className="text-slate-400 text-xs">Mode: {state.mode.toUpperCase()} • User: {state.userId}</div>
-              </div>
-              <div className="flex gap-2">
-                {["STATUS","DAILY QUESTS","REWARDS"].map(t=>(
-                  <button key={t}
-                          onClick={()=>setTab(t)}
-                          className={`px-4 py-2 rounded-t font-bold glow transition ${tab===t?'tab-active':'tab'}`}>{t}</button>
-                ))}
+        <div className="min-h-screen" style={{background:"linear-gradient(120deg,#161f31 60%,#202a40 100%)"}}>
+          <header className="p-4 shadow bg-[#171f2c] sticky top-0 z-10 border-b border-slate-800">
+            <div className="max-w-3xl mx-auto flex justify-between items-center">
+              <h1 className="text-2xl font-extrabold tracking-widest text-neon">HUNTER SYSTEM V2.0</h1>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-400">USER: {state.profile.name || "Hunter"}</span>
+                <button className="text-gray-400 hover:text-neon transition" aria-label="Settings" onClick={()=>setModal("settings")}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2"
+                    viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15A1.65 1.65 0 0 0 21 13.35c0-1.08-1-2-2-2.35V7C19 5.89 18.11 5 17 5h-2.35c-.35-1-.8-2-1.35-2.65A1.65 1.65 0 0 0 13.35 3H11C9.89 3 9 3.89 9 5v2.35c-1 .35-2 1.27-2 2.35 0 1.08 1 2 2 2.35V17c0 1.11.89 2 2 2h2.35c.35 1 .8 2 1.35 2.65A1.65 1.65 0 0 0 13.35 21H11c-1.11 0-2-.89-2-2v-2.35c-1-.35-2-1.27-2-2.35z"></path></svg>
+                </button>
               </div>
             </div>
-
-            {/* Panels */}
-            {tab==="STATUS" && (
-              <div className="my-8 space-y-6">
-                <div className="status-alert rounded-lg px-4 py-3">
-                  <div className="text-xs text-[#22d3ee] mb-1">SYSTEM ALERT</div>
-                  <div className="text-lg font-mono glow">{
-                      (()=>{
-                        const h=new Date().getHours();
-                        const t=h<12?"Good Morning":h<18?"Good Afternoon":"Good Evening";
-                        return `${t}, Hunter ${state.profile.name}! Daily Quests await.`;
-                      })()
-                    }</div>
-                </div>
-                <div className="fancy-panel neon-border rounded-lg shadow-lg p-5 mt-2">
-                  <div className="level-glow text-3xl font-extrabold mb-1">LEVEL {state.profile.level}</div>
-                  <div className="text-xs text-slate-400 mb-2">Novice Hunter</div>
-                  <div className="mb-2 text-slate-200 font-mono">Progress to next level</div>
-                  <div className="w-full bg-slate-800 rounded-full h-3 shadow-inner mb-3 relative">
-                    <div className="bg-[#00F0FF] rounded-full h-3 transition-all fancy-shadow" style={{width:`${(state.profile.xp%100)}%`}}></div>
-                  </div>
-                  <div className="text-xs text-slate-400">EXP: {state.profile.xp} | {100-(state.profile.xp%100)} EXP TO LEVEL {state.profile.level+1}</div>
-                </div>
-              </div>
-            )}
-
-            {tab==="DAILY QUESTS" && (
-              <div className="my-8 space-y-8">
-                <div className="bg-slate-800/80 neon-border rounded-lg p-5 shadow-md mb-4">
-                  <div className="text-sm text-slate-300 mb-4 font-mono">Create a new Quest (100% personalized)</div>
-                  <AddForm onAdd={addHabit}/>
-                </div>
-                <div className="grid gap-5">
-                  {state.habits.length===0 && (
-                    <div className="text-slate-400 text-center py-10">No quests yet. Add your first daily quest above!</div>
-                  )}
-                  {state.habits.map(h=>(
-                    <div key={h.id} className={`quest-box ${h.logs.includes(todayISO())?'active':''} rounded-lg px-6 py-4 flex flex-col gap-1`}>
-                      <div className="font-mono text-lg glow">{h.name}</div>
-                      <div className="text-xs text-slate-400">Streak: {h.streak}</div>
-                      <button className="mt-2 px-4 py-2 btn-neon rounded transition" onClick={()=>toggleToday(h.id)}>
-                        {h.logs.includes(todayISO())?"✔ DONE":"Mark Done"}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {tab==="REWARDS" && (
-              <div className="my-8 space-y-8">
-                <div className="bg-slate-800/80 neon-border rounded-lg p-5 shadow-md">
-                  <div className="text-sm text-slate-300 mb-4 font-mono">Rewards for XP spent</div>
-                  <div className="grid gap-4">
-                    {state.rewards.map(r=>
-                      <div key={r.id} className="p-4 rounded bg-[#0d171f] border border-[#00F0FF] shadow-lg space-y-3">
-                        <div className="font-mono text-cyan-300 glow">{r.name}</div>
-                        <div className="text-xs text-slate-400">Cost: {r.cost} XP</div>
-                        <button disabled={state.profile.xp < r.cost}
-                                className={`btn-neon mt-1 px-4 py-2 rounded ${state.profile.xp < r.cost?'opacity-50 cursor-not-allowed':''}`}
-                                onClick={()=>{save({...state,profile:{...state.profile,xp: state.profile.xp-r.cost}});}}>
-                          Redeem
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          </header>
+          <main className="max-w-3xl mx-auto pb-10 pt-6">
+            {/* Tabs */}
+            <div className="flex justify-center mb-2 border-b border-slate-800">
+              {["STATUS WINDOW", "DAILY QUESTS", "REWARDS INVENTORY"].map(tabLabel=>
+                <button key={tabLabel} className={window.activeTab===tabLabel?"tab tab-active":"tab"}
+                        onClick={()=>{window.activeTab=tabLabel;window.dispatchEvent(new Event('tab'))}}>
+                  {tabLabel}
+                </button>
+              )}
+            </div>
+            {/* Tab contents */}
+            <TabContent state={state} setState={setState} setModal={setModal} toggleHabit={toggleHabit}/>
+          </main>
+          {modal==="settings" && <SettingsModal profile={state.profile} onSave={saveName} onClose={()=>setModal(null)}/>}
+          {modal==="create" && <CreateHabitModal onSave={addHabit} onClose={()=>setModal(null)}/>}
         </div>
       );
     }
 
-    function AddForm({onAdd}) {
-      const [name,setName]=React.useState("");
-      return (
-        <form onSubmit={e=>{e.preventDefault();onAdd(name);setName("");}}>
-          <div className="flex gap-2">
-            <input value={name} onChange={e=>setName(e.target.value)}
-                   className="flex-1 px-3 py-2 neon-border rounded bg-slate-900 text-slate-100 focus:outline-none glow"
-                   placeholder="Custom quest name"/>
-            <button className="px-4 py-2 btn-neon rounded">Add</button>
-          </div>
-        </form>
-      );
+    // All Tabs
+    function TabContent({state, setState, setModal, toggleHabit}) {
+      const [tab,setTab] = React.useState(window.activeTab || "STATUS WINDOW");
+      React.useEffect(()=>{
+        const handler = () => setTab(window.activeTab);
+        window.addEventListener('tab',handler);
+        return ()=>window.removeEventListener('tab',handler);
+      },[]);
+
+      if(tab==="STATUS WINDOW") {
+        return (
+          <section className="glass neon-glow border-neon border-2 rounded-xl mt-6 p-8 shadow-2xl">
+            <div className="mb-2 text-base text-neon font-bold">SYSTEM ALERT</div>
+            <div className="text-2xl font-bold text-white mb-6">
+              {(() => {
+                const h=new Date().getHours();
+                const t=h<12?"Good Morning":h<18?"Good Afternoon":"Good Evening";
+                return `${t}, Hunter ${state.profile.name || "Hunter"}!`;
+              })()}
+            </div>
+            <div>
+              <div className="mb-5">
+                <span className="block text-lg font-extrabold text-neon mb-1">LEVEL {state.profile.level}</span>
+                <span className="block text-xs text-gray-400">XP: {state.profile.xp} / {100 * state.profile.level}</span>
+                <div className="h-2 mt-1 bg-[#212a35] rounded-full">
+                  <div className="h-full rounded-full bg-gradient-to-r from-[#51e7ff] to-[#19c497] transition-all"
+                       style={{width: `${Math.min(100, (state.profile.xp % 100))}%`}}></div>
+                </div>
+              </div>
+              <div className="flex gap-5 text-xs">
+                <div className="p-3 rounded-xl bg-[#1c2741] text-mana">MANA / FOCUS: <b>100%</b></div>
+                <div className="p-3 rounded-xl bg-[#1c2741] text-neon">{state.habits.filter(q=>q.logs.includes(todayISO())).length} QUESTS COMPLETED</div>
+              </div>
+            </div>
+          </section>
+        );
+      }
+      if(tab==="DAILY QUESTS") {
+        return (
+          <section className="mt-7">
+            <button className="btn-action px-5 py-2 rounded mb-6 float-right" onClick={()=>setModal("create")}>CREATE NEW QUEST</button>
+            <div className="clear-both"></div>
+            <div className="grid gap-6">
+              {state.habits.length===0 && <div className="glass p-8 text-neon border-2 border-neon rounded-xl text-center mt-2">No Quests yet. Create your first one!</div>}
+              {state.habits.map(h=>(
+                <div key={h.id} className="glass border-2 border-neon px-8 py-5 rounded-xl flex flex-col md:flex-row items-start md:items-center gap-5 shadow-lg">
+                  <div>
+                    <div className="text-lg font-bold text-white">{h.name}</div>
+                    {h.rewardDescription && <div className="text-xs text-neon mb-3">Reward: {h.rewardDescription}</div>}
+                  </div>
+                  <button
+                    className={`btn-action px-6 py-2 rounded-full ml-auto mt-2 md:mt-0 ${h.logs.includes(todayISO()) ? "opacity-60 cursor-not-allowed" : ""}`}
+                    onClick={()=>toggleHabit(h.id)} disabled={h.logs.includes(todayISO())}
+                  >
+                    {h.logs.includes(todayISO()) ? "DONE!" : "CLAIM EXP"}
+                  </button>
+                  <div className="text-xs text-slate-400 ml-5 hidden md:block">Streak: {h.streak||0}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      }
+      if(tab==="REWARDS INVENTORY") {
+        return (
+          <section className="mt-7">
+            <h3 className="text-lg font-bold text-neon mb-4">EARNED REWARDS</h3>
+            <ul className="space-y-3">
+              {state.habits.filter(h=>(h.streak && h.streak>=7) && h.rewardDescription).map(h=>
+                <li className="glass border-2 border-neon px-6 py-4 rounded-xl flex justify-between items-center">
+                  <div>
+                    <div className="font-bold text-neon">{h.rewardDescription}</div>
+                    <div className="text-xs text-slate-400">Quest: {h.name}</div>
+                  </div>
+                  <span className="inline-block rounded-full px-3 py-1 bg-[#182a29] text-mana font-semibold">Claimable <span className="font-mono">{h.streak}</span> Streak</span>
+                </li>
+              )}
+              {state.habits.filter(h=>h.streak<7 || !h.rewardDescription).length===state.habits.length &&
+                <li className="glass p-8 text-slate-400 border-2 border-slate-700 rounded-xl text-center">Complete 7-day streaks with a reward to see inventory!</li>
+              }
+            </ul>
+          </section>
+        );
+      }
+      return null;
     }
 
+    window.activeTab = "STATUS WINDOW";
     ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
 </body>
