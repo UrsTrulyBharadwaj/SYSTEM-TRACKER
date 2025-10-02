@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>HUNTER SYSTEM V2.0 - RPG Habit Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     html, body {
@@ -14,6 +14,7 @@
       color: #a0b8d9;
       line-height: 1.55;
       letter-spacing: 0.01em;
+      margin: 0; padding: 0;
     }
     .navy-panel {
       background: #171e2a;
@@ -69,6 +70,7 @@
       background: #23344e;
       border-radius: 8px;
       height: 15px;
+      margin-top: 6px;
     }
     .exp-bar {
       background: linear-gradient(90deg, #11e8f8 25%, #5af1fc 85%);
@@ -130,20 +132,59 @@
       stroke-width: 2;
       stroke-linecap: round;
       stroke-linejoin: round;
-      height: 1.17rem;
-      width: 1.17rem;
+      height: 1.15em;
+      width: 1.15em;
       margin-right: 7px;
-      margin-bottom: -2px;
+      margin-bottom: 0px;
     }
-    @media (max-width: 820px) {
-      .main-heading { font-size: 1.3rem; }
-      .glass-panel-lg { padding: 1.17em 0.6em 0.6em; }
-      .navy-panel { margin: 1em 0.2em; }
+    .stats-container {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      align-items: center;
+      margin-top: 12px;
     }
-    @media (max-width: 620px) {
-      .tabs, .tab-bar { flex-wrap: wrap; }
-      .tab-btn, .tab-btn:visited { font-size: 0.97rem; padding: 0.7em 1.3em; }
-      .navy-panel { margin-left: 0.15em; margin-right: 0.15em;}
+    .stat-block {
+      background: #182234;
+      border: 1.2px solid #29a3f8cc;
+      border-radius: 12px;
+      box-shadow: none;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      min-width: 95px;
+      padding: 0.7em 1.2em;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #69eaff;
+      letter-spacing: 0.085em;
+      text-shadow: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .stat-title {
+      margin-right: 0.15em;
+    }
+    .stat-value {
+      font-weight: 700;
+      color: #19e5f7;
+      margin-left: 0.3em;
+    }
+    @media (max-width: 768px) {
+      .main-heading { font-size: 1.45rem; }
+      .navy-panel { margin: 0 1rem; padding: 1.5rem 1rem!important; }
+      .stats-container {
+        flex-direction: column;
+      }
+      .stat-block {
+        min-width: auto;
+        width: 100%;
+        justify-content: flex-start;
+        margin-bottom: 10px;
+      }
     }
   </style>
 </head>
@@ -153,7 +194,6 @@
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script type="text/babel">
-// App logic
 const todayISO = ()=>new Date().toISOString().slice(0,10);
 const uid = ()=>Math.random().toString(36).slice(2,10);
 const STORAGE_KEY = "hunter_system_v2";
@@ -177,7 +217,7 @@ function getRankTitle(level) {
   if(level >= 1) return "Novice Hunter";
   return "Unregistered";
 }
-//---------------- Modal dialogs ----------------
+// Settings modal
 function SettingsModal({profile,onSave,onClose}) {
   const [name,setName]=React.useState(profile?.name||"");
   return (
@@ -193,6 +233,7 @@ function SettingsModal({profile,onSave,onClose}) {
     </div>
   );
 }
+// Create Quest modal
 function CreateHabitModal({onSave,onClose}) {
   const [name,setName]=React.useState(""), [reward,setReward]=React.useState("");
   return (
@@ -211,23 +252,24 @@ function CreateHabitModal({onSave,onClose}) {
     </div>
   );
 }
+// Main app
 function App() {
   const [state,setState]=React.useState(loadLocal());
   const [modal,setModal]=React.useState(!state.profile.name?"settings":null);
   const [tab,setTab]=React.useState(0);
   React.useEffect(()=>saveLocal(state),[state]);
-  // name set
+  // Save name
   const saveName = (name)=>{
     const next={...state,profile:{...state.profile,name}};
     setState(next); setModal(null);
   };
-  // add quest
+  // Add habit
   const addHabit = ({name,rewardDescription})=>{
     if(!name)return;
     const h={id:uid(),name:name.trim(),logs:[],streak:0,rewardDescription:rewardDescription.trim()};
     setState({...state,habits:[...state.habits,h]}); setModal(null);
   };
-  // claim quest today
+  // Claim habit
   const toggleHabit = hid=>{
     const t=todayISO();
     const next=JSON.parse(JSON.stringify(state));
@@ -240,7 +282,7 @@ function App() {
       h.streak=streak; next.profile.xp+=(gainXP(streak)); next.profile.level=recomputeLevel(next.profile.xp);}
     setState(next);
   };
-  // Tab icons SVG
+  // Icons
   const ManaIcon = () => (
     <svg className="icon" viewBox="0 0 24 24"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
   );
@@ -250,7 +292,7 @@ function App() {
   const CompletionIcon = () => (
     <svg className="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="9 12 12 15 16 10"/></svg>
   );
-  // UI render
+  // Render
   const tabs = ["STATUS WINDOW","DAILY QUESTS","REWARDS INVENTORY"];
   return (
     <div style={{minHeight:"100vh",background:"#111929"}}>
@@ -338,7 +380,7 @@ function App() {
               {state.habits.filter(h=>h.streak>=7 && h.rewardDescription).length===0 &&
                 <li className="py-8 text-[#a0b8d997] text-center">Complete 7-day streaks with a reward to see inventory!</li>}
               {state.habits.filter(h=>h.streak>=7 && h.rewardDescription).map(h=>
-                <li className="glass-panel-lg bg-[#23364aee] flex justify-between items-center">
+                <li key={h.id} className="glass-panel-lg bg-[#23364aee] flex justify-between items-center">
                   <div>
                     <div className="section-label">{h.rewardDescription}</div>
                     <div className="text-xs text-[#78e7ff]">Quest: {h.name}</div>
@@ -355,7 +397,7 @@ function App() {
     </div>
   );
 }
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
 </body>
 </html>
