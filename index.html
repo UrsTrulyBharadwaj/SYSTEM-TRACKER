@@ -2,48 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>HUNTER SYSTEM V2.0 - RPG Habit Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   html, body {
     height: 100%;
+    margin: 0; padding: 0;
     background-color: #0d1117;
     font-family: 'Roboto Mono', monospace;
     color: #a0b8d9;
-    margin: 0; padding: 0;
-  }
-  .BGDARK {
-    background-color: #0d1117; /* Match dark background exactly */
-  }
-  .NEONBLUE {
-    color: #00f0ff;
-    text-shadow: 0 0 6px #00f0ffaa, 0 0 16px #00f0ff50;
-  }
-  .NEONGREEN {
-    color: #48ff48;
-    text-shadow: 0 0 8px #48ff48aa;
-  }
-  .NEONBLUETOAST {
-    background-color: #0f1822dd;
-    border: 1px solid #00f0ffaa;
-    box-shadow: 0 0 16px #00f0ff88;
-    border-radius: 14px;
-    padding: 2rem 2.3rem;
-    color: #a0b8d9;
-    font-weight: 600;
-    font-size: 1rem;
-    letter-spacing: 0.1em;
-  }
-  .NEONBLUETOAST h3 {
-    margin: 0 0 .5rem 0;
-    font-size: 1.25rem;
+    line-height: 1.6;
   }
   .header {
-    padding: 1rem 1.5rem;
     background-color: #0c141f;
     border-bottom: 1px solid #005566aa;
+    padding: 1rem 1.5rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -60,30 +35,33 @@
     background: none;
     border: none;
     color: #00f0ffcc;
-    cursor: pointer;
     font-size: 1.25rem;
+    cursor: pointer;
   }
   .setting-btn:hover {
     color: #00f0ff;
   }
   .tabs {
+    background-color: #0f172a;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 2px 16px #0f172a70;
     display: flex;
     justify-content: center;
-    background-color: #0f1a2b;
-    border-bottom: 2px solid #00f0ff50;
   }
-  .tab-button {
+  .tab-btn {
     cursor: pointer;
-    background: none;
     border: none;
+    background: none;
     color: #015c6a;
     padding: 1rem 2rem;
     font-weight: 700;
     letter-spacing: 0.15em;
     font-size: 0.90rem;
-    transition: all 0.3s ease;
+    transition: color 0.3s ease;
+    border-bottom: 3px solid transparent;
+    text-shadow: none;
   }
-  .tab-button.active {
+  .tab-btn.active {
     color: #00f0ff;
     border-bottom: 3px solid #00f0ff;
     background-color: #001920;
@@ -94,11 +72,9 @@
     margin: 1.6rem auto 2rem auto;
     padding: 0 1rem;
   }
-  /* Status Window */
   .status-alert {
     background-color: #001e31;
     color: #00bbcc;
-    text-shadow: 0 0 5px #00bbccaa;
     text-transform: uppercase;
     font-weight: 700;
     font-size: 0.9rem;
@@ -106,6 +82,7 @@
     border-radius: 14px;
     margin-bottom: 1rem;
     letter-spacing: 0.12em;
+    text-align: center;
   }
   .status-greeting {
     font-size: 1.5rem;
@@ -113,6 +90,7 @@
     font-weight: 900;
     margin-top: 0.1rem;
     margin-bottom: 2rem;
+    text-align: center;
   }
   .level-panel {
     background-color: #011427;
@@ -125,11 +103,13 @@
   .level-title {
     font-size: 1.8rem;
     font-weight: 900;
+    text-align: center;
   }
   .level-subtitle {
     font-size: 1rem;
     color: #00bbcc;
     margin-left: 0.5rem;
+    font-weight: normal;
   }
   .exp-bar-wrapper {
     background-color: #00293a;
@@ -138,7 +118,7 @@
     height: 20px;
     overflow: hidden;
   }
-  .exp-bar-fill {
+  .exp-bar {
     background: linear-gradient(90deg, #00f0ff, #11c7d5, #00f0ff);
     height: 100%;
     width: 0;
@@ -148,11 +128,12 @@
     font-size: 0.9rem;
     color: #0099abcc;
     margin-top: 7px;
+    text-align: center;
   }
   .stats-container {
     display: flex;
     gap: 1rem;
-    justify-content: space-between;
+    justify-content: space-around;
     color: #00f0ff;
   }
   .stat-block {
@@ -164,6 +145,8 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    text-align: center;
+    min-width: 100px;
   }
   .stat-icon {
     font-size: 1.7rem;
@@ -179,7 +162,6 @@
     font-weight: 900;
     color: #00bbcc;
   }
-  /* Daily quests */
   .daily-item {
     background-color: #002137;
     border-radius: 16px;
@@ -189,9 +171,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
   }
   .daily-item-info {
     color: #00dfee;
+    flex: 1 1 250px;
   }
   .daily-item-title {
     font-weight: 900;
@@ -216,6 +200,8 @@
     cursor: pointer;
     box-shadow: 0 3px 25px #00bbff97;
     transition: background 0.3s ease;
+    min-width: 150px;
+    margin-top: 0.8rem;
   }
   .claim-button:hover {
     background: #00b9f6;
@@ -224,7 +210,6 @@
     opacity: 0.5;
     cursor: default;
   }
-  /* Rewards */
   .reward-item {
     background-color: #002338;
     border-radius: 16px;
@@ -234,6 +219,7 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
+    flex-wrap: wrap;
   }
   .reward-title {
     font-weight: 700;
@@ -253,7 +239,6 @@
     font-size: 1.1rem;
     font-weight: 700;
   }
-  /* Modal */
   .modal-bg {
     position: fixed;
     inset: 0;
@@ -266,26 +251,27 @@
   .modal-panel {
     background: #0f1822;
     border-radius: 1.3rem;
-    padding: 3rem 3.5rem;
-    max-width: 420px;
-    width: 95vw;
+    padding: 2rem 3rem;
+    max-width: 440px;
+    width: 90vw;
     box-shadow: 0 1rem 2rem #00b7ff50;
   }
   .modal-title {
     font-size: 1.8rem;
     color: #00d7ff;
     font-weight: 900;
-    padding-bottom: 1.4rem;
-    letter-spacing: 0.2em;
+    padding-bottom: 1.5rem;
+    letter-spacing: 0.22em;
+    text-align: center;
   }
   .modal-input {
-    margin-bottom: 1.8rem;
+    margin-bottom: 1.4rem;
     width: 100%;
     font-size: 1.1rem;
     font-weight: 900;
-    padding: 1rem 1.6rem;
+    padding: 0.8rem 1.6rem;
     border-radius: 0.6rem;
-    border: 2px solid #00a5c6;
+    border: 2.5px solid #00a5c6;
     background: #071623;
     color: #08aadd;
     outline: none;
@@ -298,7 +284,7 @@
     background: linear-gradient(to right, #00aaf8, #007fa5);
     border: none;
     color: #030511;
-    font-weight: 700;
+    font-weight: 900;
     font-size: 1.1rem;
     padding: 1rem 1.6rem;
     border-radius: 0.75rem;
@@ -310,8 +296,6 @@
   .modal-button:hover {
     background-color: #0099e8;
   }
-
-  /* Responsive fixes */
   @media (max-width: 768px) {
     .header {
       flex-direction: column;
@@ -322,17 +306,17 @@
       font-size: 1.5rem;
       letter-spacing: 0.15em;
     }
-    .navy-panel {
-      margin: 0 1rem;
-      padding: 1.5rem 1.2rem !important;
+    main {
+      margin: 1rem;
+      padding: 1.5rem 1rem;
     }
     .stats-container {
       flex-direction: column;
-      gap: 0.75rem;
+      gap: 1rem;
+      padding: 0 0.4rem;
     }
     .stat-block {
-      flex: unset;
-      width: 100%;
+      min-width: 100%;
     }
     .daily-item {
       flex-direction: column;
@@ -340,319 +324,308 @@
       padding: 1rem;
     }
     .claim-button {
-      padding: 0.7rem 1.6rem;
       width: 100%;
-      margin-top: 0.8rem;
+      padding: 0.6rem 0;
+      font-size: 1rem;
+      margin-top: 1rem;
     }
-    .modal-panel {
-      padding: 2rem 2rem;
-      max-width: 90vw;
+    .reward-item {
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 1rem;
     }
   }
 </style>
 </head>
-<body class="BGDARK">
+<body>
 <div id="root"></div>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script type="text/babel">
-// Helper functions
-const todayISO = () => new Date().toISOString().slice(0, 10);
-const uid = () => Math.random().toString(36).slice(2, 10);
-const STORAGE_KEY = "hunterSystemUserId";
-
-function loadState() {
-  let raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return {
-      profile: { name: "Hunter", xp: 0, level: 1 },
-      habits: [],
-      rewards: [],
-    };
+  // Helpers and storage
+  const todayISO = () => new Date().toISOString().slice(0, 10);
+  const uid = () => Math.random().toString(36).slice(2, 10);
+  const STORAGE_KEY = "hunterSystemData";
+  function loadState() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : { profile: { name: "Hunter", xp: 0, level: 1 }, habits: [], rewards: [] };
   }
-  return JSON.parse(raw);
-}
+  function saveState(state) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
 
-function saveState(state) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
+  // Level titles
+  function getRankTitle(level) {
+    if (level >= 11) return "Elite Specialist";
+    if (level >= 6) return "Rookie Analyst";
+    if (level >= 1) return "Novice Hunter";
+    return "Unregistered";
+  }
+  const gainXP = (streak) => streak >= 3 ? 15 : 10;
 
-// Level titles for RPG style
-function getRankTitle(level) {
-  if (level >= 11) return "Elite Specialist";
-  if (level >= 6) return "Rookie Analyst";
-  if (level >= 1) return "Novice Hunter";
-  return "Unregistered";
-}
+  // Components
 
-// EXP gain based on streak
-function gainXPForStreak(streak) {
-  return streak >= 3 ? 15 : 10;
-}
-
-// React Components
-
-function SettingsModal({ profile, onSave, onClose }) {
-  const [name, setName] = React.useState(profile.name || "");
-
-  return (
-    <div className="modal-bg">
-      <div className="modal-panel">
-        <h2 className="modal-title">SYSTEM SETTINGS</h2>
-        <input
-          type="text"
-          className="modal-input"
-          placeholder="Hunter Display Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          autoFocus
-        />
-        <button className="modal-button" onClick={() => onSave(name)}>
-          SAVE & CONTINUE
-        </button>
-        <button className="mt-4 text-gray-400 hover:text-white w-full bg-transparent border-0 cursor-pointer" onClick={onClose}>
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function CreateQuestModal({ onSave, onClose }) {
-  const [questName, setQuestName] = React.useState("");
-  const [questReward, setQuestReward] = React.useState("");
-  return (
-    <div className="modal-bg">
-      <div className="modal-panel">
-        <h2 className="modal-title">CREATE NEW QUEST</h2>
-        <input
-          type="text"
-          className="modal-input"
-          placeholder="Quest Name (e.g., Meditate 10 mins)"
-          value={questName}
-          onChange={(e) => setQuestName(e.target.value)}
-          autoFocus
-        />
-        <input
-          type="text"
-          className="modal-input"
-          placeholder="7-Day Reward (e.g., Biryani Pass Unlocked)"
-          value={questReward}
-          onChange={(e) => setQuestReward(e.target.value)}
-        />
-        <button
-          className="modal-button"
-          onClick={() => {
-            if (questName) {
-              onSave({ name: questName, rewardDescription: questReward });
-            }
-          }}
-        >
-          ACTIVATE QUEST
-        </button>
-        <button className="mt-4 text-gray-400 hover:text-white w-full bg-transparent border-0 cursor-pointer" onClick={onClose}>
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ icon, title, value }) {
-  return (
-    <div className="stat-block">
-      <span className="stat-icon">{icon}</span>
-      <span className="stat-title">{title}</span>
-      <span className="stat-value">{value}</span>
-    </div>
-  );
-}
-
-function App() {
-  const [state, setState] = React.useState(loadState());
-  const [modal, setModal] = React.useState(!state.profile.name ? "settings" : null);
-  const [activeTab, setActiveTab] = React.useState(0); // 0: Status, 1: Daily Quests, 2: Rewards
-
-  React.useEffect(() => {
-    saveState(state);
-  }, [state]);
-
-  const saveName = (name) => {
-    const next = { ...state, profile: { ...state.profile, name } };
-    setState(next);
-    setModal(null);
-  };
-
-  const addHabit = ({ name, rewardDescription }) => {
-    if (!name) return;
-
-    const quest = {
-      id: uid(),
-      name,
-      logs: [],
-      streak: 0,
-      rewardDescription: rewardDescription,
-    };
-
-    setState({ ...state, habits: [...state.habits, quest] });
-    setModal(null);
-  };
-
-  const toggleHabit = (id) => {
-    const today = todayISO();
-    const next = JSON.parse(JSON.stringify(state));
-    const quest = next.habits.find((h) => h.id === id);
-    if (!quest) return;
-    const completed = quest.logs.includes(today);
-
-    if (!completed) {
-      quest.logs.push(today);
-      let streak = 0;
-      const days = new Set(quest.logs);
-      for (let i = 0; ; i++) {
-        const day = new Date();
-        day.setDate(day.getDate() - i);
-        const isoDay = day.toISOString().slice(0, 10);
-        if (days.has(isoDay)) streak++;
-        else break;
-      }
-      quest.streak = streak;
-      next.profile.xp += gainXPForStreak(streak);
-      next.profile.level = Math.floor(next.profile.xp / 100) + 1;
-    }
-    setState(next);
-  };
-
-  // Icons
-  const lightningIcon = (
-    <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="#19e5f7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-    </svg>
-  );
-  const giftIcon = (
-    <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="#19e5f7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="8 12 12 16 16 12" />
-    </svg>
-  );
-  const targetIcon = (
-    <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="#19e5f7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="9 12 12 15 16 10" />
-    </svg>
-  );
-
-  return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#0d1117" }}>
-      <header className="header">
-        <h1>HUNTER SYSTEM V2.0</h1>
-        <div>
-          <span className="NEONBLUE" style={{ letterSpacing: "0.09em", fontWeight: 700 }}>
-            USER: {state.profile.name}
-          </span>
-          <button className="setting-btn" onClick={() => setModal("settings")} aria-label="Edit settings">
-            &#9881;
+  function SettingsModal({ profile, onSave, onClose }) {
+    const [name, setName] = React.useState(profile.name || "");
+    return (
+      <div className="modal-bg">
+        <div className="modal-panel">
+          <h2 className="modal-title">SYSTEM SETTINGS</h2>
+          <input
+            type="text"
+            className="modal-input"
+            placeholder="Hunter Display Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
+          <button className="modal-button" onClick={() => onSave(name)}>
+            SAVE & CONTINUE
+          </button>
+          <button className="mt-4 text-gray-400 hover:text-white w-full bg-transparent border-0 cursor-pointer" onClick={onClose}>
+            Cancel
           </button>
         </div>
-      </header>
-      <nav className="tabs">
-        <button className={`tab-button ${activeTab === 0 ? "tab-on" : ""}`} onClick={() => setActiveTab(0)}>
-          STATUS WINDOW
-        </button>
-        <button className={`tab-button ${activeTab === 1 ? "tab-on" : ""}`} onClick={() => setActiveTab(1)}>
-          DAILY QUESTS
-        </button>
-        <button className={`tab-button ${activeTab === 2 ? "tab-on" : ""}`} onClick={() => setActiveTab(2)}>
-          REWARDS INVENTORY
-        </button>
-      </nav>
-      <main className="navy-panel">
-        {activeTab === 0 && (
-          <section>
-            <div className="status-alert">SYSTEM ALERT</div>
-            <div className="status-greeting">
-              {(() => {
-                const hour = new Date().getHours();
-                if (hour < 12) return `Good Morning, Hunter ${state.profile.name}!`;
-                else if (hour < 18) return `Good Afternoon, Hunter ${state.profile.name}!`;
-                else return `Good Evening, Hunter ${state.profile.name}!`;
-              })()}
-            </div>
-            <div className="level-panel">
-              <div className="level-title">
-                LEVEL {state.profile.level} <span className="level-subtitle">({getRankTitle(state.profile.level)})</span>
+      </div>
+    );
+  }
+
+  function CreateQuestModal({ onSave, onClose }) {
+    const [questName, setQuestName] = React.useState("");
+    const [questReward, setQuestReward] = React.useState("");
+    return (
+      <div className="modal-bg">
+        <div className="modal-panel">
+          <h2 className="modal-title">CREATE NEW QUEST</h2>
+          <input
+            type="text"
+            className="modal-input"
+            placeholder="Quest Name (e.g., Meditate 10 mins)"
+            value={questName}
+            onChange={(e) => setQuestName(e.target.value)}
+            autoFocus
+          />
+          <input
+            type="text"
+            className="modal-input"
+            placeholder="7-Day Reward (e.g., Biryani Pass Unlocked)"
+            value={questReward}
+            onChange={(e) => setQuestReward(e.target.value)}
+          />
+          <button
+            className="modal-button"
+            onClick={() => {
+              if (questName) {
+                onSave({ name: questName, rewardDescription: questReward });
+              }
+            }}
+          >
+            ACTIVATE QUEST
+          </button>
+          <button className="mt-4 text-gray-400 hover:text-white w-full bg-transparent border-0 cursor-pointer" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function StatCard({ icon, title, value }) {
+    return (
+      <div className="stat-block">
+        <span className="stat-icon">{icon}</span>
+        <span className="stat-title">{title}</span>
+        <span className="stat-value">{value}</span>
+      </div>
+    );
+  }
+
+  function App() {
+    const [state, setState] = React.useState(loadState());
+    const [modal, setModal] = React.useState(!state.profile.name ? "settings" : null);
+    const [activeTab, setActiveTab] = React.useState(0); // 0: Status, 1: Daily Quests, 2: Rewards
+
+    React.useEffect(() => {
+      saveState(state);
+    }, [state]);
+
+    const saveName = (name) => {
+      const next = { ...state, profile: { ...state.profile, name } };
+      setState(next);
+      setModal(null);
+    };
+
+    const addHabit = ({ name, rewardDescription }) => {
+      if (!name) return;
+
+      const quest = {
+        id: uid(),
+        name,
+        logs: [],
+        streak: 0,
+        rewardDescription: rewardDescription,
+      };
+
+      setState({ ...state, habits: [...state.habits, quest] });
+      setModal(null);
+    };
+
+    const toggleHabit = (id) => {
+      const today = todayISO();
+      const next = JSON.parse(JSON.stringify(state));
+      const quest = next.habits.find((h) => h.id === id);
+      if (!quest) return;
+      const completed = quest.logs.includes(today);
+
+      if (!completed) {
+        quest.logs.push(today);
+        let streak = 0;
+        const days = new Set(quest.logs);
+        for (let i = 0; ; i++) {
+          const day = new Date();
+          day.setDate(day.getDate() - i);
+          const isoDay = day.toISOString().slice(0, 10);
+          if (days.has(isoDay)) streak++;
+          else break;
+        }
+        quest.streak = streak;
+        next.profile.xp += gainXP(streak);
+        next.profile.level = Math.floor(next.profile.xp / 100) + 1;
+      }
+      setState(next);
+    };
+
+    // Icons
+    const lightningIcon = (
+      <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="#19e5f7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+      </svg>
+    );
+    const giftIcon = (
+      <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="#19e5f7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="8 12 12 16 16 12" />
+      </svg>
+    );
+    const targetIcon = (
+      <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="#19e5f7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="9 12 12 15 16 10" />
+      </svg>
+    );
+
+    return (
+      <div style={{ minHeight: "100vh", backgroundColor: "#0d1117" }}>
+        <header className="header">
+          <h1>HUNTER SYSTEM V2.0</h1>
+          <div>
+            <span className="NEONBLUE" style={{ letterSpacing: "0.09em", fontWeight: 700 }}>
+              USER: {state.profile.name}
+            </span>
+            <button className="setting-btn" onClick={() => setModal("settings")} aria-label="Edit settings">
+              &#9881;
+            </button>
+          </div>
+        </header>
+        <nav className="tabs">
+          <button className={`tab-btn ${activeTab === 0 ? "tab-on" : ""}`} onClick={() => setActiveTab(0)}>
+            STATUS WINDOW
+          </button>
+          <button className={`tab-btn ${activeTab === 1 ? "tab-on" : ""}`} onClick={() => setActiveTab(1)}>
+            DAILY QUESTS
+          </button>
+          <button className={`tab-btn ${activeTab === 2 ? "tab-on" : ""}`} onClick={() => setActiveTab(2)}>
+            REWARDS INVENTORY
+          </button>
+        </nav>
+        <main className="navy-panel">
+          {activeTab === 0 && (
+            <section>
+              <div className="status-alert">SYSTEM ALERT</div>
+              <div className="status-greeting">
+                {(() => {
+                  const hour = new Date().getHours();
+                  if (hour < 12) return `Good Morning, Hunter ${state.profile.name}!`;
+                  else if (hour < 18) return `Good Afternoon, Hunter ${state.profile.name}!`;
+                  else return `Good Evening, Hunter ${state.profile.name}!`;
+                })()}
               </div>
-              <div className="exp-bar-wrapper">
-                <div className="exp-bar" style={{ width: `${state.profile.xp % 100}%` }}></div>
-              </div>
-              <div className="exp-text">
-                EXP: {state.profile.xp} Total | {100 - (state.profile.xp % 100)} EXP TO LEVEL {state.profile.level + 1}
-              </div>
-              <div className="stats-container">
-                <StatCard icon={lightningIcon} title="MANA / FOCUS" value="100%" />
-                <StatCard icon={giftIcon} title="REWARDS PENDING" value={state.habits.filter((h) => h.streak >= 7).length} />
-                <StatCard
-                  icon={targetIcon}
-                  title="TODAY'S COMPLETION"
-                  value={
-                    state.habits.length === 0
-                      ? "0%"
-                      : `${Math.round((state.habits.filter((h) => h.logs.includes(todayISO())).length / state.habits.length) * 100)}%`
-                  }
-                />
-              </div>
-            </div>
-          </section>
-        )}
-        {activeTab === 1 && (
-          <section>
-            <div style={{ display: "flex", justifyContent: "flex-end", paddingRight: "1rem", marginBottom: "1rem" }}>
-              <button className="btn-create" onClick={() => setModal("create")}>
-                CREATE NEW QUEST
-              </button>
-            </div>
-            {state.habits.length === 0 && <div style={{ textAlign: "center", color: "#38fefb99", padding: "5rem", fontSize: "1.3rem" }}>No Quests Active. Click 'Create New Quest' to begin!</div>}
-            {state.habits.map((quest) => (
-              <div key={quest.id} className="daily-item">
-                <div className="daily-item-info">
-                  <div className="daily-item-title">{quest.name}</div>
-                  {quest.rewardDescription && <div className="daily-item-reward">Reward: {quest.rewardDescription}</div>}
-                  <div className="streak-label">Streak: {quest.streak || 0}</div>
+              <div className="level-panel">
+                <div className="level-title">
+                  LEVEL {state.profile.level} <span className="level-subtitle">({getRankTitle(state.profile.level)})</span>
                 </div>
-                <button className="claim-button" disabled={quest.logs.includes(todayISO())} onClick={() => toggleHabit(quest.id)}>
-                  {quest.logs.includes(todayISO()) ? "CLAIMED" : "CLAIM XP"}
+                <div className="exp-bar-wrapper">
+                  <div className="exp-bar" style={{ width: `${state.profile.xp % 100}%` }}></div>
+                </div>
+                <div className="exp-text">
+                  EXP: {state.profile.xp} Total | {100 - (state.profile.xp % 100)} EXP TO LEVEL {state.profile.level + 1}
+                </div>
+                <div className="stats-container">
+                  <StatCard icon={lightningIcon} title="MANA / FOCUS" value="100%" />
+                  <StatCard icon={giftIcon} title="REWARDS PENDING" value={state.habits.filter((h) => h.streak >= 7).length} />
+                  <StatCard
+                    icon={targetIcon}
+                    title="TODAY'S COMPLETION"
+                    value={
+                      state.habits.length === 0
+                        ? "0%"
+                        : `${Math.round((state.habits.filter((h) => h.logs.includes(todayISO())).length / state.habits.length) * 100)}%`
+                    }
+                  />
+                </div>
+              </div>
+            </section>
+          )}
+          {activeTab === 1 && (
+            <section>
+              <div style={{ display: "flex", justifyContent: "flex-end", paddingRight: "1rem", marginBottom: "1rem" }}>
+                <button className="btn-create" onClick={() => setModal("create")}>
+                  CREATE NEW QUEST
                 </button>
               </div>
-            ))}
-          </section>
-        )}
-        {activeTab === 2 && (
-          <section style={{ padding: "0 2rem" }}>
-            <div className="section-label" style={{ textAlign: "center", marginBottom: "2rem" }}>
-              EARNED REWARDS
-            </div>
-            {state.habits.filter((h) => h.streak >= 7 && h.rewardDescription).length === 0 && (
-              <div style={{ color: "#a0b8d997", textAlign: "center", padding: "3rem" }}>Complete 7-day streaks with a reward to see inventory!</div>
-            )}
-            <ul style={{ paddingLeft: 0 }}>
-              {state.habits
-                .filter((h) => h.streak >= 7 && h.rewardDescription)
-                .map((h) => (
-                  <li key={h.id} className="reward-item">
-                    <div>
-                      <div className="reward-title">{h.rewardDescription}</div>
-                      <div className="reward-quest">Quest: {h.name}</div>
-                    </div>
-                    <div className="reward-streak">Streak: {h.streak || 0}</div>
-                  </li>
-                ))}
-            </ul>
-          </section>
-        )}
-      </main>
-      {modal === "settings" && <SettingsModal profile={state.profile} onSave={saveName} onClose={() => setModal(null)} />}
-      {modal === "create" && <CreateQuestModal onSave={addHabit} onClose={() => setModal(null)} />}
+              {state.habits.length === 0 && <div style={{ textAlign: "center", color: "#38fefb99", padding: "5rem", fontSize: "1.3rem" }}>No Quests Active. Click 'Create New Quest' to begin!</div>}
+              {state.habits.map((quest) => (
+                <div key={quest.id} className="daily-item">
+                  <div className="daily-item-info">
+                    <div className="daily-item-title">{quest.name}</div>
+                    {quest.rewardDescription && <div className="daily-item-reward">Reward: {quest.rewardDescription}</div>}
+                    <div className="streak-label">Streak: {quest.streak || 0}</div>
+                  </div>
+                  <button className="claim-button" disabled={quest.logs.includes(todayISO())} onClick={() => toggleHabit(quest.id)}>
+                    {quest.logs.includes(todayISO()) ? "CLAIMED" : "CLAIM XP"}
+                  </button>
+                </div>
+              ))}
+            </section>
+          )}
+          {activeTab === 2 && (
+            <section style={{ padding: "0 2rem" }}>
+              <div className="section-label" style={{ textAlign: "center", marginBottom: "2rem" }}>
+                EARNED REWARDS
+              </div>
+              {state.habits.filter((h) => h.streak >= 7 && h.rewardDescription).length === 0 && (
+                <div style={{ color: "#a0b8d997", textAlign: "center", padding: "3rem" }}>Complete 7-day streaks with a reward to see inventory!</div>
+              )}
+              <ul style={{ paddingLeft: 0 }}>
+                {state.habits
+                  .filter((h) => h.streak >= 7 && h.rewardDescription)
+                  .map((h) => (
+                    <li key={h.id} className="reward-item">
+                      <div>
+                        <div className="reward-title">{h.rewardDescription}</div>
+                        <div className="reward-quest">Quest: {h.name}</div>
+                      </div>
+                      <div className="reward-streak">Streak: {h.streak || 0}</div>
+                    </li>
+                  ))}
+              </ul>
+            </section>
+          )}
+        </main>
+        {modal === "settings" && <SettingsModal profile={state.profile} onSave={saveName} onClose={() => setModal(null)} />}
+        {modal === "create" && <CreateQuestModal onSave={addHabit} onClose={() => setModal(null)} />}
+      </div>
     </div>
   );
 }
