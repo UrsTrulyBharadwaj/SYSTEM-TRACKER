@@ -4,227 +4,100 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Hunter System V2.0 – RPG Daily Tracker</title>
-
-  <!-- Tailwind (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- UI font -->
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet"/>
-
   <style>
-    :root {
-      --bg: #0d1117;
-      --panel: #111827;
-      --muted: #9ca3af;
-      --neon: #00F0FF;
-      --accent: #22c55e;
-    }
-    body { background: var(--bg); font-family: "Roboto Mono", monospace; }
-    .glow { text-shadow: 0 0 10px rgba(0,240,255,.6); }
-    .ring-neon { box-shadow: 0 0 0 1px rgba(0,240,255,.35), 0 0 18px rgba(0,240,255,.25) inset; }
-    .spin { animation: spin 1s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    body { background: #0d1117; font-family: "Roboto Mono", monospace; }
+    .glow { text-shadow: 0 0 10px #00F0FF, 0 0 2px #22d3ee; }
+    .neon-border { border: 2px solid #00F0FF; box-shadow: 0 0 24px #00F0FF60; }
+    .fancy-panel { background: linear-gradient(135deg,#0d1117 0%,#111b37 100%); }
+    .fancy-shadow { box-shadow: 0 6px 32px #00F0FF22 inset;}
+    .status-alert { background: #0d1c20; border: 2px solid #00F0FF; box-shadow: 0 0 24px #00F0FF22; }
+    .level-glow { color: #00F0FF; text-shadow: 0 0 8px #00F0FF,0 0 2px #22d3ee; }
+    .tab-active { background: #0b1726; color: #00F0FF; border-bottom: 3px solid #00F0FF; }
+    .tab { color: #dbeafe; }
+    .quest-box { border: 1.5px solid #21e6c1; background: #111b37; box-shadow: 0 0 16px #21e6c133; }
+    .quest-box.active { border-color: #00F0FF; box-shadow: 0 0 24px #00F0FF22 inset; }
+    .btn-neon { background: #00F0FF; color: #111827; font-weight:600; box-shadow: 0 0 12px #00F0FF60;}
+    .btn-neon:hover { background: #0cf3ee; }
   </style>
-
-  <!-- Optional Firebase config (leave null for offline-only) -->
   <script>
-    // Fill this object to enable Firestore sync; otherwise leave null.
-    // Example:
-    // window.firebaseConfig = {
-    //   apiKey: "…",
-    //   authDomain: "…",
-    //   projectId: "…",
-    //   storageBucket: "…",
-    //   messagingSenderId: "…",
-    //   appId: "…"
-    // };
-    window.firebaseConfig = null; // works 100% offline when null
+    window.firebaseConfig = null; // offline only, paste your config for sync
   </script>
-
-  <!-- React 18 UMD + Babel (for single-file JSX) -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- Firebase modular SDKs (safe to import even if not used) -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-    window.__firebaseSDK = { initializeApp, getFirestore, doc, getDoc, setDoc };
-  </script>
 </head>
 <body>
   <div id="root"></div>
-
   <script type="text/babel">
-    // ---------- Utility ----------
-    const cls = (...xs) => xs.filter(Boolean).join(" ");
+    // Utilities, Level/XP logic
     const todayISO = () => new Date().toISOString().slice(0,10);
     const uid = () => Math.random().toString(36).slice(2,10);
-
-    // ---------- State shape ----------
-    // state = {
-    //   mode: "offline" | "online",
-    //   userId: string,
-    //   profile: { name, email, xp, level },
-    //   habits: [{id, name, logs:[isoDate,...], streak}],
-    //   rewards: [{id, name, cost}],
-    // }
     const STORAGE_KEY = "hunter_v2_state";
-
-    // ---------- Leveling ----------
-    const gainXPForTick = (streak) => (streak >= 3 ? 15 : 10);
-    const recomputeLevel = (xp) => 1 + Math.floor(xp / 100);
-
-    // ---------- Providers ----------
+    const gainXPForTick = streak => (streak>=3?15:10);
+    const recomputeLevel = xp => 1+Math.floor(xp/100);
+    // Provider (local only)
     const LocalProvider = {
       load: async () => {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) {
-          const bootstrap = {
+          const state = {
             mode: "offline",
             userId: "guest",
             profile: { name: "Hunter", email: "", xp: 0, level: 1 },
-            habits: [
-              { id: uid(), name: "Deep Work (60m)", logs: [], streak: 0 },
-              { id: uid(), name: "Workout", logs: [], streak: 0 },
-              { id: uid(), name: "Reading (20p)", logs: [], streak: 0 },
-            ],
+            habits: [],   // ** EMPTY! **
             rewards: [
               { id: uid(), name: "Music Break", cost: 20 },
-              { id: uid(), name: "Episode Reward", cost: 50 },
+              { id: uid(), name: "Episode Reward", cost: 50 }
             ]
           };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(bootstrap));
-          return bootstrap;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          return state;
         }
         return JSON.parse(raw);
       },
-      save: async (state) => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      }
-    };
-
-    const FirebaseProvider = {
-      // store the whole state blob in one document for simplicity + speed
-      keyFor: (userId) => ["tracker_state", userId],
-      load: async (userId) => {
-        const { initializeApp, getFirestore, doc, getDoc } = window.__firebaseSDK;
-        const app = initializeApp(window.firebaseConfig);
-        const db  = getFirestore(app);
-        const [col, id] = FirebaseProvider.keyFor(userId);
-        const ref = doc(db, col, id);
-        const snap = await getDoc(ref);
-        if (!snap.exists()) {
-          return null; // first time online -> let caller bootstrap
-        }
-        return snap.data();
-      },
-      save: async (state) => {
-        const { initializeApp, getFirestore, doc, setDoc } = window.__firebaseSDK;
-        const app = initializeApp(window.firebaseConfig);
-        const db  = getFirestore(app);
-        const [col, id] = FirebaseProvider.keyFor(state.userId);
-        await setDoc(doc(db, col, id), state, { merge: true });
-      }
+      save: async state => localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
     };
 
     async function loadState() {
-      // Always start offline instantly
       let state = await LocalProvider.load();
-      // If Firebase config present, try to hydrate/merge without blocking UI
-      if (window.firebaseConfig && window.__firebaseSDK) {
-        try {
-          const cloud = await FirebaseProvider.load(state.userId);
-          if (cloud && cloud.profile && cloud.habits) {
-            // prefer most recent XP/level; merge habits by id
-            const byIdLocal  = Object.fromEntries(state.habits.map(h => [h.id, h]));
-            const byIdRemote = Object.fromEntries(cloud.habits.map(h => [h.id, h]));
-            const allIds = new Set([...Object.keys(byIdLocal), ...Object.keys(byIdRemote)]);
-            const mergedHabits = [...allIds].map(id => byIdRemote[id] ?? byIdLocal[id]).filter(Boolean);
-
-            state = {
-              ...state,
-              mode: "online",
-              profile: { ...state.profile, ...cloud.profile },
-              habits: mergedHabits,
-              rewards: cloud.rewards?.length ? cloud.rewards : state.rewards
-            };
-            await LocalProvider.save(state);
-          } else {
-            state.mode = "online"; // first-time cloud, keep offline bootstrap and mark online
-            await FirebaseProvider.save(state);
-          }
-        } catch (e) {
-          // stay offline quietly; never block
-          state.mode = "offline";
-        }
-      } else {
-        state.mode = "offline";
-      }
+      state.mode = "offline";
       return state;
     }
 
-    // ---------- App ----------
     function App() {
-      const [state, setState] = React.useState(null);        // null => loading
-      const [tab, setTab] = React.useState("STATUS");
-      const [error, setError] = React.useState("");
+      const [state,setState] = React.useState(null);
+      const [tab,setTab] = React.useState("STATUS");
+      React.useEffect(()=>{ loadState().then(setState); },[]);
 
-      React.useEffect(() => {
-        let cancelled = false;
-        // Fail-safe start in <1s regardless of network
-        const failSafe = setTimeout(() => {
-          if (!cancelled && !state) setError("Started in Offline Mode (instant load).");
-        }, 1000);
-
-        loadState().then(s => { if (!cancelled) setState(s); });
-        return () => { cancelled = true; clearTimeout(failSafe); };
-      }, []);
-
-      if (!state) {
-        return (
-          <div className="min-h-screen flex items-center justify-center text-slate-200">
-            <div className="text-center">
-              <div className="mx-auto mb-6 h-10 w-10 rounded-full border-4 border-cyan-400/30 border-t-cyan-400 spin"></div>
-              <div className="text-cyan-300 glow tracking-widest">SYSTEM INITIALIZING…</div>
-              <div className="text-sm text-slate-400 mt-2">{error || "Preparing UI"}</div>
-            </div>
+      if(!state) return (
+        <div className="min-h-screen flex items-center justify-center text-slate-100">
+          <div className="text-center">
+            <div className="mx-auto mb-6 h-10 w-10 rounded-full border-4 border-cyan-400/30 border-t-cyan-400 animate-spin"></div>
+            <div className="level-glow text-lg">SYSTEM INITIALIZING…</div>
+            <div className="text-slate-400 mt-2">Preparing UI</div>
           </div>
-        );
-      }
+        </div>
+      );
 
-      const save = async (next) => {
-        setState(next);
-        await LocalProvider.save(next);
-        if (next.mode === "online" && window.firebaseConfig) {
-          try { await FirebaseProvider.save(next); } catch { /* ignore */ }
-        }
-      };
+      const save = async (next) => { setState(next); await LocalProvider.save(next); };
 
       const toggleToday = (habitId) => {
         const t = todayISO();
         const next = structuredClone(state);
-        const h = next.habits.find(x => x.id === habitId);
-        if (!h) return;
+        const h = next.habits.find(x=>x.id===habitId); if(!h) return;
         const had = h.logs.includes(t);
-        if (had) {
-          h.logs = h.logs.filter(x => x !== t);
-          // rolling back XP if removing today's tick
-          const newXP = Math.max(0, next.profile.xp - gainXPForTick(h.streak > 0 ? h.streak : 0));
-          next.profile.xp = newXP;
-          next.profile.level = recomputeLevel(newXP);
+        if(had) {
+          h.logs = h.logs.filter(x=>x!==t);
+          next.profile.xp = Math.max(0,next.profile.xp-gainXPForTick(h.streak));
+          next.profile.level = recomputeLevel(next.profile.xp);
         } else {
           h.logs.push(t);
-          // recompute streak
-          const days = new Set(h.logs);
-          let streak = 0;
-          for (let i = 0; ; i++) {
-            const d = new Date(); d.setDate(d.getDate() - i);
-            const iso = d.toISOString().slice(0,10);
-            if (days.has(iso)) streak++; else break;
-          }
-          h.streak = streak;
+          let streak=0, days=new Set(h.logs);
+          for(let i=0;;i++){const d=new Date(); d.setDate(d.getDate()-i);
+            const iso=d.toISOString().slice(0,10);if(days.has(iso))streak++;else break;}
+          h.streak=streak;
           next.profile.xp += gainXPForTick(streak);
           next.profile.level = recomputeLevel(next.profile.xp);
         }
@@ -232,137 +105,94 @@
       };
 
       const addHabit = (name) => {
-        if (!name || !name.trim()) return;
+        if(!name || !name.trim()) return;
         const next = structuredClone(state);
-        next.habits.push({ id: uid(), name: name.trim(), logs: [], streak: 0 });
-        save(next);
-      };
-
-      const spend = (reward) => {
-        const next = structuredClone(state);
-        if (next.profile.xp >= reward.cost) {
-          next.profile.xp -= reward.cost;
-          next.profile.level = recomputeLevel(next.profile.xp);
-          save(next);
-        }
-      };
-
-      const renameProfile = (name, email) => {
-        const next = structuredClone(state);
-        if (name != null) next.profile.name = name;
-        if (email != null) next.profile.email = email;
+        next.habits.push({id:uid(),name:name.trim(),logs:[],streak:0});
         save(next);
       };
 
       return (
-        <div className="min-h-screen text-slate-200">
-          {/* Top bar */}
-          <div className="max-w-5xl mx-auto px-4 py-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="min-h-screen text-slate-100 fancy-panel">
+          <div className="max-w-4xl mx-auto pt-8 px-2">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6">
               <div>
-                <div className="uppercase tracking-widest text-cyan-300 glow">HUNTER SYSTEM V2.0</div>
-                <div className="text-sm text-slate-400">Mode: {state.mode.toUpperCase()} • User: {state.userId}</div>
+                <div className="font-bold text-xl tracking-[.23em] glow">HUNTER SYSTEM V2.0</div>
+                <div className="text-slate-400 text-xs">Mode: {state.mode.toUpperCase()} • User: {state.userId}</div>
               </div>
               <div className="flex gap-2">
-                {["STATUS","DAILY QUESTS","REWARDS","SETTINGS"].map(t => (
+                {["STATUS","DAILY QUESTS","REWARDS"].map(t=>(
                   <button key={t}
                           onClick={()=>setTab(t)}
-                          className={cls("px-3 py-2 rounded ring-neon",
-                                         tab===t ? "bg-cyan-500/10 text-cyan-300" : "bg-slate-800/60 text-slate-300")} >
-                    {t}
-                  </button>
+                          className={`px-4 py-2 rounded-t font-bold glow transition ${tab===t?'tab-active':'tab'}`}>{t}</button>
                 ))}
               </div>
             </div>
 
             {/* Panels */}
             {tab==="STATUS" && (
-              <div className="mt-6 grid md:grid-cols-2 gap-6">
-                <div className="bg-slate-900/70 rounded-lg p-5 ring-neon">
-                  <div className="text-slate-400 text-xs mb-1">Greeting</div>
-                  <div className="text-2xl text-cyan-300 glow">
-                    {(()=> {
-                      const h = new Date().getHours();
-                      const t = h<12? "Good Morning" : h<18? "Good Afternoon" : "Good Evening";
-                      return `${t}, Hunter ${state.profile.name}! System Level ${state.profile.level}`;
-                    })()}
-                  </div>
+              <div className="my-8 space-y-6">
+                <div className="status-alert rounded-lg px-4 py-3">
+                  <div className="text-xs text-[#22d3ee] mb-1">SYSTEM ALERT</div>
+                  <div className="text-lg font-mono glow">{
+                      (()=>{
+                        const h=new Date().getHours();
+                        const t=h<12?"Good Morning":h<18?"Good Afternoon":"Good Evening";
+                        return `${t}, Hunter ${state.profile.name}! Daily Quests await.`;
+                      })()
+                    }</div>
                 </div>
-                <div className="bg-slate-900/70 rounded-lg p-5 ring-neon">
-                  <div className="text-slate-400 text-xs mb-1">Progress</div>
-                  <div className="text-lg">XP: <span className="text-cyan-300">{state.profile.xp}</span></div>
-                  <div className="text-lg">Level: <span className="text-cyan-300">{state.profile.level}</span></div>
-                  <div className="text-slate-400 text-sm mt-2">+10 XP per quest, +15 with 3+ day streak.</div>
-                </div>
-                <div className="bg-slate-900/70 rounded-lg p-5 ring-neon md:col-span-2">
-                  <div className="text-slate-400 text-xs mb-2">Today</div>
-                  <div className="flex flex-wrap gap-2">
-                    {state.habits.map(h => (
-                      <button key={h.id}
-                              onClick={()=>toggleToday(h.id)}
-                              className={cls("px-3 py-2 rounded border",
-                                             h.logs.includes(todayISO())
-                                               ? "bg-emerald-500/20 border-emerald-400 text-emerald-300"
-                                               : "bg-slate-800/60 border-slate-600 text-slate-300")}>
-                        {h.name} • Streak {h.streak}
-                      </button>
-                    ))}
+                <div className="fancy-panel neon-border rounded-lg shadow-lg p-5 mt-2">
+                  <div className="level-glow text-3xl font-extrabold mb-1">LEVEL {state.profile.level}</div>
+                  <div className="text-xs text-slate-400 mb-2">Novice Hunter</div>
+                  <div className="mb-2 text-slate-200 font-mono">Progress to next level</div>
+                  <div className="w-full bg-slate-800 rounded-full h-3 shadow-inner mb-3 relative">
+                    <div className="bg-[#00F0FF] rounded-full h-3 transition-all fancy-shadow" style={{width:`${(state.profile.xp%100)}%`}}></div>
                   </div>
+                  <div className="text-xs text-slate-400">EXP: {state.profile.xp} | {100-(state.profile.xp%100)} EXP TO LEVEL {state.profile.level+1}</div>
                 </div>
               </div>
             )}
 
             {tab==="DAILY QUESTS" && (
-              <div className="mt-6 grid gap-4">
-                <div className="bg-slate-900/70 rounded-lg p-5 ring-neon">
-                  <div className="text-slate-400 text-xs mb-2">Add Quest</div>
+              <div className="my-8 space-y-8">
+                <div className="bg-slate-800/80 neon-border rounded-lg p-5 shadow-md mb-4">
+                  <div className="text-sm text-slate-300 mb-4 font-mono">Create a new Quest (100% personalized)</div>
                   <AddForm onAdd={addHabit}/>
                 </div>
-                <div className="bg-slate-900/70 rounded-lg p-5 ring-neon">
-                  <div className="text-slate-400 text-xs mb-3">Quests</div>
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {state.habits.map(h => (
-                      <div key={h.id} className="p-4 rounded bg-slate-800/60 border border-slate-700">
-                        <div className="text-cyan-300">{h.name}</div>
-                        <div className="text-sm text-slate-400 mt-1">Streak: {h.streak}</div>
-                        <button onClick={()=>toggleToday(h.id)} className="mt-3 px-3 py-1.5 rounded bg-emerald-600 text-white">
-                          Mark Today
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                <div className="grid gap-5">
+                  {state.habits.length===0 && (
+                    <div className="text-slate-400 text-center py-10">No quests yet. Add your first daily quest above!</div>
+                  )}
+                  {state.habits.map(h=>(
+                    <div key={h.id} className={`quest-box ${h.logs.includes(todayISO())?'active':''} rounded-lg px-6 py-4 flex flex-col gap-1`}>
+                      <div className="font-mono text-lg glow">{h.name}</div>
+                      <div className="text-xs text-slate-400">Streak: {h.streak}</div>
+                      <button className="mt-2 px-4 py-2 btn-neon rounded transition" onClick={()=>toggleToday(h.id)}>
+                        {h.logs.includes(todayISO())?"✔ DONE":"Mark Done"}
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
             {tab==="REWARDS" && (
-              <div className="mt-6 grid gap-4">
-                <div className="bg-slate-900/70 rounded-lg p-5 ring-neon">
-                  <div className="text-slate-400 text-xs mb-3">Available</div>
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {state.rewards.map(r => (
-                      <div key={r.id} className="p-4 rounded bg-slate-800/60 border border-slate-700">
-                        <div className="text-cyan-300">{r.name}</div>
-                        <div className="text-sm text-slate-400">Cost: {r.cost} XP</div>
-                        <button onClick={()=>spend(r)} disabled={state.profile.xp < r.cost}
-                                className={cls("mt-3 px-3 py-1.5 rounded text-white",
-                                               state.profile.xp < r.cost ? "bg-slate-600 cursor-not-allowed" : "bg-indigo-600")}>
+              <div className="my-8 space-y-8">
+                <div className="bg-slate-800/80 neon-border rounded-lg p-5 shadow-md">
+                  <div className="text-sm text-slate-300 mb-4 font-mono">Rewards for XP spent</div>
+                  <div className="grid gap-4">
+                    {state.rewards.map(r=>
+                      <div key={r.id} className="p-4 rounded bg-[#0d171f] border border-[#00F0FF] shadow-lg space-y-3">
+                        <div className="font-mono text-cyan-300 glow">{r.name}</div>
+                        <div className="text-xs text-slate-400">Cost: {r.cost} XP</div>
+                        <button disabled={state.profile.xp < r.cost}
+                                className={`btn-neon mt-1 px-4 py-2 rounded ${state.profile.xp < r.cost?'opacity-50 cursor-not-allowed':''}`}
+                                onClick={()=>{save({...state,profile:{...state.profile,xp: state.profile.xp-r.cost}});}}>
                           Redeem
                         </button>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {tab==="SETTINGS" && (
-              <div className="mt-6 grid gap-4">
-                <div className="bg-slate-900/70 rounded-lg p-5 ring-neon">
-                  <div className="text-slate-400 text-xs mb-2">Profile</div>
-                  <SettingsForm profile={state.profile} onSave={renameProfile}/>
-                  <div className="text-sm text-slate-400 mt-4">
-                    Storage: {state.mode === "online" ? "Local + Firestore Sync" : "Local Only"}
+                    )}
                   </div>
                 </div>
               </div>
@@ -372,46 +202,21 @@
       );
     }
 
-    function AddForm({ onAdd }) {
-      const [name, setName] = React.useState("");
+    function AddForm({onAdd}) {
+      const [name,setName]=React.useState("");
       return (
-        <form onSubmit={e=>{e.preventDefault(); onAdd(name); setName("");}}>
+        <form onSubmit={e=>{e.preventDefault();onAdd(name);setName("");}}>
           <div className="flex gap-2">
             <input value={name} onChange={e=>setName(e.target.value)}
-                   className="flex-1 px-3 py-2 rounded bg-slate-800/60 border border-slate-700 text-slate-200"
-                   placeholder="New quest name"/>
-            <button className="px-3 py-2 rounded bg-cyan-600 text-white">Add</button>
+                   className="flex-1 px-3 py-2 neon-border rounded bg-slate-900 text-slate-100 focus:outline-none glow"
+                   placeholder="Custom quest name"/>
+            <button className="px-4 py-2 btn-neon rounded">Add</button>
           </div>
         </form>
       );
     }
 
-    function SettingsForm({ profile, onSave }) {
-      const [name, setName] = React.useState(profile.name || "");
-      const [email, setEmail] = React.useState(profile.email || "");
-      return (
-        <form onSubmit={e=>{e.preventDefault(); onSave(name, email);}}>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <div className="text-xs text-slate-400 mb-1">Display Name</div>
-              <input value={name} onChange={e=>setName(e.target.value)}
-                     className="w-full px-3 py-2 rounded bg-slate-800/60 border border-slate-700 text-slate-200"
-                     placeholder="Hunter"/>
-            </div>
-            <div>
-              <div className="text-xs text-slate-400 mb-1">Email (optional)</div>
-              <input value={email} onChange={e=>setEmail(e.target.value)}
-                     className="w-full px-3 py-2 rounded bg-slate-800/60 border border-slate-700 text-slate-200"
-                     placeholder="name@example.com"/>
-            </div>
-          </div>
-          <button className="mt-4 px-3 py-2 rounded bg-emerald-600 text-white">Save</button>
-        </form>
-      );
-    }
-
-    const root = ReactDOM.createRoot(document.getElementById("root"));
-    root.render(<App />);
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
 </body>
 </html>
